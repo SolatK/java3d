@@ -104,8 +104,6 @@ public class Controller {
         projectionMatrix.m[2][3] = 1f;
         projectionMatrix.m[3][3] = 0f;
 
-        System.out.println(cube);
-
 
         //noinspection InfiniteLoopStatement
         while (true) {
