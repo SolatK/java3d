@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="render3d:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/render3d_jar</output-path>
+    <root id="archive" name="render3d.jar">
+      <element id="module-output" name="render3d" />
+    </root>
+  </artifact>
+</component>
