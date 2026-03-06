@@ -6,6 +6,10 @@ public class Polygon {
     public Vec3d[] p = {new Vec3d(0,0,0), new Vec3d(0,0,0), new Vec3d(0,0,0)};
     public Color color;
 
+    {
+        color = Color.white;
+    }
+
     public Polygon() {
     }
 

@@ -11,6 +11,10 @@ public class Mesh {
         this.mesh = mesh;
     }
 
+    public Mesh() {
+    }
+
+
     public Mesh(float... coords) {
         //TODO добавить исключение на неверное количество координат
         for (int i = 0; i < coords.length; i+=9) {
@@ -36,5 +40,9 @@ public class Mesh {
         for (Polygon polygon: mesh) {
             polygon.color = color;
         }
+    }
+
+    public void addPolygon(Polygon polygon) {
+        mesh.add(polygon);
     }
 }

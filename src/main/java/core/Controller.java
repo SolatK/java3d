@@ -4,13 +4,17 @@ import core.graphics.Matrix;
 import core.graphics.Mesh;
 import core.graphics.Polygon;
 import core.graphics.Vec3d;
+import core.utils.ModelLoader;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.nio.file.Paths;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 
 import static core.Settings.*;
 
@@ -29,7 +33,7 @@ public class Controller {
     private final Deque<MouseEvent> pressedDeque = new ArrayDeque<>();
 
     //TODO временный мусор
-    private Mesh cube;
+    //private Mesh cube;
 
     private final Matrix projectionMatrix = new Matrix();
 
@@ -69,6 +73,7 @@ public class Controller {
         long elapsedTime;
         long waitTime;
 
+        /*
         cube = new Mesh(
             // SOUTH
             new float[]{ 0.0f, 0.0f, 0.0f,    0.0f, 1.0f, 0.0f,    1.0f, 1.0f, 0.0f },
@@ -96,6 +101,8 @@ public class Controller {
         );
 
         cube.setColor(Color.orange);
+         */
+
 
         //projection matrix
         float fNear = 0.1f;
@@ -118,7 +125,7 @@ public class Controller {
             elapsedTime = now - lastTime;
             lastTime = now;
 
-            frameTime = (elapsedTime / 1000000000);
+            frameTime = ((float) elapsedTime / 1000000000);
 
             processKeys();
 
@@ -160,7 +167,7 @@ public class Controller {
         Matrix matrixRotZ = new Matrix();
         Matrix matrixRotX = new Matrix();
 
-        angle += 0.01f;
+        angle += 0.03f;
 
         // Rotation Z матрица
         matrixRotZ.m[0][0] = (float) Math.cos(angle);
@@ -179,8 +186,11 @@ public class Controller {
         matrixRotX.m[3][3] = 1;
 
 
+        Mesh model = ModelLoader.load(Paths.get("src/main/resources/SpaceShip.obj"));
         //полигоноукладка
-        for (Polygon polygon: cube.mesh) {
+        List<Polygon> polygonsToDraw = new ArrayList<>();
+
+        for (Polygon polygon: model.mesh) {
             Polygon polygonProjected = new Polygon(polygon.color);
             Polygon polygonRotatedZ = new Polygon();
             Polygon polygonRotatedZX = new Polygon();
@@ -197,9 +207,9 @@ public class Controller {
 
             Polygon polygonTranslated = new Polygon(polygonRotatedZX);
 
-            polygonTranslated.p[0].z = polygonRotatedZX.p[0].z + 3f;
-            polygonTranslated.p[1].z = polygonRotatedZX.p[1].z + 3f;
-            polygonTranslated.p[2].z = polygonRotatedZX.p[2].z + 3f;
+            polygonTranslated.p[0].z = polygonRotatedZX.p[0].z + 8f;
+            polygonTranslated.p[1].z = polygonRotatedZX.p[1].z + 8f;
+            polygonTranslated.p[2].z = polygonRotatedZX.p[2].z + 8f;
 
             //нормаль
             Vec3d normal = new Vec3d();
@@ -267,9 +277,19 @@ public class Controller {
                     new Color((int) Math.max(0, dp * 255), (int) Math.max(0, dp * 255), 0)
             );
              */
-            canvas.fillTriangle(polygonProjected);
+
+            polygonsToDraw.add(polygonProjected);
         }
 
+        polygonsToDraw.sort((s1, s2) -> {
+            float a = (s1.p[0].z + s1.p[1].z + s1.p[2].z) / 3;
+            float b = (s2.p[0].z + s2.p[1].z + s2.p[2].z) / 3;
+            return Float.compare(b, a);
+        });
+
+        for (Polygon polygon: polygonsToDraw) {
+            canvas.fillTriangle(polygon);
+        }
 
         canvas.render();
     }
