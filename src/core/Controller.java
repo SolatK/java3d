@@ -1,6 +1,5 @@
 package core;
 
-import core.Canvas;
 import core.graphics.Matrix;
 import core.graphics.Mesh;
 import core.graphics.Polygon;
@@ -10,7 +9,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 import static core.Settings.*;
 
@@ -156,7 +156,6 @@ public class Controller {
         Matrix matrixRotX = new Matrix();
 
         angle += 0.01f;
-        System.out.println(angle);
 
         // Rotation Z
         matrixRotZ.m[0][0] = (float) Math.cos(angle);

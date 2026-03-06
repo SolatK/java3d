@@ -7,16 +7,11 @@ public class Canvas extends java.awt.Canvas {
 
     private BufferStrategy bs;
 
-    private final int originX;
-    private final int originY;
-
     private Graphics g;
 
     public Canvas(int width, int height) {
         setBackground(Color.BLACK);
         setSize(new Dimension(width, height));
-        originX = width/2;
-        originY = height/2;
     }
 
     public void setBs(BufferStrategy bs) {

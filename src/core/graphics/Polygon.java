@@ -1,7 +1,5 @@
 package core.graphics;
 
-import java.util.Arrays;
-
 public class Polygon {
     public Vec3d[] p = {new Vec3d(0,0,0), new Vec3d(0,0,0), new Vec3d(0,0,0)};
 
