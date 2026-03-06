@@ -1,5 +1,6 @@
 package core.graphics;
 
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,6 +29,12 @@ public class Mesh {
             mesh.add(
                     new Polygon(coord)
             );
+        }
+    }
+
+    public void setColor(Color color) {
+        for (Polygon polygon: mesh) {
+            polygon.color = color;
         }
     }
 }

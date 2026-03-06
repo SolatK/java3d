@@ -1,9 +1,16 @@
 package core.graphics;
 
+import java.awt.*;
+
 public class Polygon {
     public Vec3d[] p = {new Vec3d(0,0,0), new Vec3d(0,0,0), new Vec3d(0,0,0)};
+    public Color color;
 
     public Polygon() {
+    }
+
+    public Polygon(Color color) {
+        this.color = color;
     }
 
     public Polygon(Vec3d[] polygon) {
@@ -36,5 +43,14 @@ public class Polygon {
                 new Vec3d(polygon.p[1].x, polygon.p[1].y, polygon.p[1].z),
                 new Vec3d(polygon.p[2].x, polygon.p[2].y, polygon.p[2].z)
         };
+    }
+
+    public Polygon(Polygon polygon, Color color) {
+        p = new Vec3d[]{
+                new Vec3d(polygon.p[0].x, polygon.p[0].y, polygon.p[0].z),
+                new Vec3d(polygon.p[1].x, polygon.p[1].y, polygon.p[1].z),
+                new Vec3d(polygon.p[2].x, polygon.p[2].y, polygon.p[2].z)
+        };
+        this.color = color;
     }
 }

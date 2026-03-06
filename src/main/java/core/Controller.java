@@ -18,15 +18,20 @@ public class Controller {
 
     private float frameTime;
 
+    //TODO временный мусор
     private double angle;
+
+    //TODO временный мусор
+    private Vec3d camera = new Vec3d();
 
     private final Canvas canvas = new Canvas(WIDTH, HEIGHT);
 
     private final Deque<MouseEvent> pressedDeque = new ArrayDeque<>();
 
+    //TODO временный мусор
     private Mesh cube;
 
-    private Matrix projectionMatrix = new Matrix();
+    private final Matrix projectionMatrix = new Matrix();
 
     public void run() {
         JFrame frame = frame(WIDTH, HEIGHT, canvas, "3D тест");
@@ -89,6 +94,8 @@ public class Controller {
             new float[]{ 1.0f, 0.0f, 1.0f,    0.0f, 0.0f, 1.0f,    0.0f, 0.0f, 0.0f },
             new float[]{ 1.0f, 0.0f, 1.0f,    0.0f, 0.0f, 0.0f,    1.0f, 0.0f, 0.0f }
         );
+
+        cube.setColor(Color.orange);
 
         //projection matrix
         float fNear = 0.1f;
@@ -155,7 +162,7 @@ public class Controller {
 
         angle += 0.01f;
 
-        // Rotation Z
+        // Rotation Z матрица
         matrixRotZ.m[0][0] = (float) Math.cos(angle);
         matrixRotZ.m[0][1] = (float) Math.sin(angle);
         matrixRotZ.m[1][0] = (float) -Math.sin(angle);
@@ -163,7 +170,7 @@ public class Controller {
         matrixRotZ.m[2][2] = 1;
         matrixRotZ.m[3][3] = 1;
 
-        // Rotation X
+        // Rotation X матрица
         matrixRotX.m[0][0] = 1;
         matrixRotX.m[1][1] = (float) Math.cos(angle * 0.5f);
         matrixRotX.m[1][2] = (float) Math.sin(angle * 0.5f);
@@ -174,7 +181,7 @@ public class Controller {
 
         //полигоноукладка
         for (Polygon polygon: cube.mesh) {
-            Polygon polygonProjected = new Polygon();
+            Polygon polygonProjected = new Polygon(polygon.color);
             Polygon polygonRotatedZ = new Polygon();
             Polygon polygonRotatedZX = new Polygon();
 
@@ -194,7 +201,41 @@ public class Controller {
             polygonTranslated.p[1].z = polygonRotatedZX.p[1].z + 3f;
             polygonTranslated.p[2].z = polygonRotatedZX.p[2].z + 3f;
 
+            //нормаль
+            Vec3d normal = new Vec3d();
+            Vec3d lineA = new Vec3d();
+            Vec3d lineB = new Vec3d();
 
+            lineA.x = polygonTranslated.p[1].x - polygonTranslated.p[0].x;
+            lineA.y = polygonTranslated.p[1].y - polygonTranslated.p[0].y;
+            lineA.z = polygonTranslated.p[1].z - polygonTranslated.p[0].z;
+
+            lineB.x = polygonTranslated.p[2].x - polygonTranslated.p[0].x;
+            lineB.y = polygonTranslated.p[2].y - polygonTranslated.p[0].y;
+            lineB.z = polygonTranslated.p[2].z - polygonTranslated.p[0].z;
+
+            normal.x = lineA.y * lineB.z - lineA.z * lineB.y;
+            normal.y = lineA.z * lineB.x - lineA.x * lineB.z;
+            normal.z = lineA.x * lineB.y - lineA.y * lineB.x;
+
+            //нормализация нормали
+            float l = (float) Math.sqrt(normal.x*normal.x + normal.y*normal.y + normal.z*normal.z);
+            normal.x /= l; normal.y /= l; normal.z /= l;
+
+            if (
+                normal.x * (polygonTranslated.p[0].x - camera.x) +
+                normal.y * (polygonTranslated.p[0].y - camera.y) +
+                normal.z * (polygonTranslated.p[0].z - camera.z) >= 0
+            ) continue;
+
+            //свет
+            //TODO нормализовать свет?
+            Vec3d light = new Vec3d(0, 0, -1);
+            float dp = dotProduct(normal, light);
+
+            polygonProjected.color = shade(polygonProjected.color, dp);
+
+            //проекция на координаты экрана
             multiplyMatrixVector(polygonTranslated.p[0], polygonProjected.p[0], projectionMatrix);
             multiplyMatrixVector(polygonTranslated.p[1], polygonProjected.p[1], projectionMatrix);
             multiplyMatrixVector(polygonTranslated.p[2], polygonProjected.p[2], projectionMatrix);
@@ -219,12 +260,14 @@ public class Controller {
             polygonProjected.p[2].x *= 0.5f * WIDTH;
             polygonProjected.p[2].y *= 0.5f * HEIGHT;
 
-            canvas.drawTriangle(
+            /*canvas.fillTriangle(
                     (int) polygonProjected.p[0].x, (int) polygonProjected.p[0].y,
                     (int) polygonProjected.p[1].x, (int) polygonProjected.p[1].y,
                     (int) polygonProjected.p[2].x, (int) polygonProjected.p[2].y,
-                    Color.green
+                    new Color((int) Math.max(0, dp * 255), (int) Math.max(0, dp * 255), 0)
             );
+             */
+            canvas.fillTriangle(polygonProjected);
         }
 
 
@@ -241,6 +284,19 @@ public class Controller {
         {
             o.x /= w; o.y /= w; o.z /= w;
         }
+    }
+
+    private float dotProduct(Vec3d vecA, Vec3d vecB) {
+        return vecA.x * vecB.x + vecA.y * vecB.y + vecA.z * vecB.z;
+    }
+
+    private Color shade(Color color, float factor) {
+        factor = Math.max(0, factor);
+        return new Color(
+                (int) (color.getRed() * factor),
+                (int) (color.getGreen() * factor),
+                (int) (color.getBlue() * factor)
+        );
     }
 
 
