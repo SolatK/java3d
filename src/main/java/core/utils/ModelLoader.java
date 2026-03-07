@@ -20,7 +20,7 @@ public class ModelLoader {
         //TODO переделать с использованием scanner
         try (Stream<String> file = Files.lines(path)) {
 
-            vertexes = file.filter(line -> line.charAt(0) == 'v')
+            vertexes = file.filter(line -> !line.isEmpty() && line.charAt(0) == 'v')
                     .map(s -> Arrays.stream(s.substring(2).split(" "))
                     .map(Float::parseFloat)
                     .toArray(Float[]::new))
@@ -33,7 +33,7 @@ public class ModelLoader {
         try (Stream<String> file = Files.lines(path)) {
 
             //TODO убрать костыль с двойным чтением файла
-            faces = file.filter(line -> line.charAt(0) == 'f')
+            faces = file.filter(line -> !line.isEmpty() && line.charAt(0) == 'f')
                     .map(s -> Arrays.stream(s.substring(2).split(" "))
                     .map(i -> Integer.parseInt(i) - 1)// -1 для соответствия индексов
                     .toArray(Integer[]::new))

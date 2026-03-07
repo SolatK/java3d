@@ -1,6 +1,6 @@
 package core;
 
-import core.graphics.Matrix;
+import core.graphics.Matrix4x4;
 import core.graphics.Mesh;
 import core.graphics.Polygon;
 import core.graphics.Vec3d;
@@ -17,13 +17,14 @@ import java.util.Deque;
 import java.util.List;
 
 import static core.Settings.*;
+import static core.utils.VectorMath.*;
 
 public class Controller {
 
     private float frameTime;
 
     //TODO временный мусор
-    private double angle;
+    private float angle;
 
     //TODO временный мусор
     private Vec3d camera = new Vec3d();
@@ -32,10 +33,7 @@ public class Controller {
 
     private final Deque<MouseEvent> pressedDeque = new ArrayDeque<>();
 
-    //TODO временный мусор
-    //private Mesh cube;
-
-    private final Matrix projectionMatrix = new Matrix();
+    private final Matrix4x4 projectionMatrix = new Matrix4x4();
 
     public void run() {
         JFrame frame = frame(WIDTH, HEIGHT, canvas, "3D тест");
@@ -73,51 +71,8 @@ public class Controller {
         long elapsedTime;
         long waitTime;
 
-        /*
-        cube = new Mesh(
-            // SOUTH
-            new float[]{ 0.0f, 0.0f, 0.0f,    0.0f, 1.0f, 0.0f,    1.0f, 1.0f, 0.0f },
-            new float[]{ 0.0f, 0.0f, 0.0f,    1.0f, 1.0f, 0.0f,    1.0f, 0.0f, 0.0f },
-
-            // EAST
-            new float[]{ 1.0f, 0.0f, 0.0f,    1.0f, 1.0f, 0.0f,    1.0f, 1.0f, 1.0f },
-            new float[]{ 1.0f, 0.0f, 0.0f,    1.0f, 1.0f, 1.0f,    1.0f, 0.0f, 1.0f },
-
-            // NORTH
-            new float[]{ 1.0f, 0.0f, 1.0f,    1.0f, 1.0f, 1.0f,    0.0f, 1.0f, 1.0f },
-            new float[]{ 1.0f, 0.0f, 1.0f,    0.0f, 1.0f, 1.0f,    0.0f, 0.0f, 1.0f },
-
-            // WEST
-            new float[]{ 0.0f, 0.0f, 1.0f,    0.0f, 1.0f, 1.0f,    0.0f, 1.0f, 0.0f },
-            new float[]{ 0.0f, 0.0f, 1.0f,    0.0f, 1.0f, 0.0f,    0.0f, 0.0f, 0.0f },
-
-            // TOP
-            new float[]{ 0.0f, 1.0f, 0.0f,    0.0f, 1.0f, 1.0f,    1.0f, 1.0f, 1.0f },
-            new float[]{ 0.0f, 1.0f, 0.0f,    1.0f, 1.0f, 1.0f,    1.0f, 1.0f, 0.0f },
-
-            // BOTTOM
-            new float[]{ 1.0f, 0.0f, 1.0f,    0.0f, 0.0f, 1.0f,    0.0f, 0.0f, 0.0f },
-            new float[]{ 1.0f, 0.0f, 1.0f,    0.0f, 0.0f, 0.0f,    1.0f, 0.0f, 0.0f }
-        );
-
-        cube.setColor(Color.orange);
-         */
-
-
         //projection matrix
-        float fNear = 0.1f;
-        float fFar = 1000f;
-        float fov = 90f;
-        float aspectRatio = (float) HEIGHT / (float) WIDTH;
-        float fovRad = (float) (1f / Math.tan(fov * 0.5 / 180f * Math.PI));
-
-        projectionMatrix.m[0][0] = aspectRatio * fovRad;
-        projectionMatrix.m[1][1] = fovRad;
-        projectionMatrix.m[2][2] = fFar / (fFar - fNear);
-        projectionMatrix.m[3][2] = (-fFar * fNear) / (fFar - fNear);
-        projectionMatrix.m[2][3] = 1f;
-        projectionMatrix.m[3][3] = 0f;
-
+        projectionMatrix.makeProjection(90f, (float) HEIGHT / (float) WIDTH, 0.1f, 1000f);
 
         //noinspection InfiniteLoopStatement
         while (true) {
@@ -164,101 +119,77 @@ public class Controller {
     private void render(Canvas canvas, long frameTime) {
         canvas.newFrame();
         canvas.drawFPS(frameTime);
-        Matrix matrixRotZ = new Matrix();
-        Matrix matrixRotX = new Matrix();
+
+        Matrix4x4 matrixRotZ = new Matrix4x4();
+        Matrix4x4 matrixRotX = new Matrix4x4();
 
         angle += 0.03f;
+        matrixRotZ.makeRotationZ(angle);
+        matrixRotX.makeRotationX(angle);
 
-        // Rotation Z матрица
-        matrixRotZ.m[0][0] = (float) Math.cos(angle);
-        matrixRotZ.m[0][1] = (float) Math.sin(angle);
-        matrixRotZ.m[1][0] = (float) -Math.sin(angle);
-        matrixRotZ.m[1][1] = (float) Math.cos(angle);
-        matrixRotZ.m[2][2] = 1;
-        matrixRotZ.m[3][3] = 1;
+        Matrix4x4 translationMatrix = new Matrix4x4();
+        translationMatrix.makeTranslation(0f, 0f, 16f);
 
-        // Rotation X матрица
-        matrixRotX.m[0][0] = 1;
-        matrixRotX.m[1][1] = (float) Math.cos(angle * 0.5f);
-        matrixRotX.m[1][2] = (float) Math.sin(angle * 0.5f);
-        matrixRotX.m[2][1] = (float) -Math.sin(angle * 0.5f);
-        matrixRotX.m[2][2] = (float) Math.cos(angle * 0.5f);
-        matrixRotX.m[3][3] = 1;
 
+        Matrix4x4 worldMatrix;
+
+        worldMatrix = matrixMultiply(
+                matrixMultiply(matrixRotZ, matrixRotX),
+                translationMatrix
+        );
 
         Mesh model = ModelLoader.load(Paths.get("src/main/resources/SpaceShip.obj"));
+        model.setColor(new Color(255, 140, 0));
+
+
         //полигоноукладка
         List<Polygon> polygonsToDraw = new ArrayList<>();
 
         for (Polygon polygon: model.mesh) {
-            Polygon polygonProjected = new Polygon(polygon.color);
-            Polygon polygonRotatedZ = new Polygon();
-            Polygon polygonRotatedZX = new Polygon();
+            Polygon polygonProjected = new Polygon();
+            Polygon polygonTransformed = new Polygon();
 
-
-            multiplyMatrixVector(polygon.p[0], polygonRotatedZ.p[0], matrixRotZ);
-            multiplyMatrixVector(polygon.p[1], polygonRotatedZ.p[1], matrixRotZ);
-            multiplyMatrixVector(polygon.p[2], polygonRotatedZ.p[2], matrixRotZ);
-
-            multiplyMatrixVector(polygonRotatedZ.p[0], polygonRotatedZX.p[0], matrixRotX);
-            multiplyMatrixVector(polygonRotatedZ.p[1], polygonRotatedZX.p[1], matrixRotX);
-            multiplyMatrixVector(polygonRotatedZ.p[2], polygonRotatedZX.p[2], matrixRotX);
-
-
-            Polygon polygonTranslated = new Polygon(polygonRotatedZX);
-
-            polygonTranslated.p[0].z = polygonRotatedZX.p[0].z + 8f;
-            polygonTranslated.p[1].z = polygonRotatedZX.p[1].z + 8f;
-            polygonTranslated.p[2].z = polygonRotatedZX.p[2].z + 8f;
+            polygonTransformed.p[0] = matrixMultiplyVector(worldMatrix, polygon.p[0]);
+            polygonTransformed.p[1] = matrixMultiplyVector(worldMatrix, polygon.p[1]);
+            polygonTransformed.p[2] = matrixMultiplyVector(worldMatrix, polygon.p[2]);
 
             //нормаль
-            Vec3d normal = new Vec3d();
-            Vec3d lineA = new Vec3d();
-            Vec3d lineB = new Vec3d();
+            Vec3d normal, lineA, lineB;
 
-            lineA.x = polygonTranslated.p[1].x - polygonTranslated.p[0].x;
-            lineA.y = polygonTranslated.p[1].y - polygonTranslated.p[0].y;
-            lineA.z = polygonTranslated.p[1].z - polygonTranslated.p[0].z;
-
-            lineB.x = polygonTranslated.p[2].x - polygonTranslated.p[0].x;
-            lineB.y = polygonTranslated.p[2].y - polygonTranslated.p[0].y;
-            lineB.z = polygonTranslated.p[2].z - polygonTranslated.p[0].z;
-
-            normal.x = lineA.y * lineB.z - lineA.z * lineB.y;
-            normal.y = lineA.z * lineB.x - lineA.x * lineB.z;
-            normal.z = lineA.x * lineB.y - lineA.y * lineB.x;
+            lineA = vectorSubtract(polygonTransformed.p[1], polygonTransformed.p[0]);
+            lineB = vectorSubtract(polygonTransformed.p[2], polygonTransformed.p[0]);
 
             //нормализация нормали
-            float l = (float) Math.sqrt(normal.x*normal.x + normal.y*normal.y + normal.z*normal.z);
-            normal.x /= l; normal.y /= l; normal.z /= l;
+            normal = vectorNormalize(vectorCrossProduct(lineA, lineB));
 
-            if (
-                normal.x * (polygonTranslated.p[0].x - camera.x) +
-                normal.y * (polygonTranslated.p[0].y - camera.y) +
-                normal.z * (polygonTranslated.p[0].z - camera.z) >= 0
-            ) continue;
+            //TODO изучить вопрос
+            Vec3d cameraRay = vectorSubtract(polygonTransformed.p[0], camera);
 
-            //свет
-            //TODO нормализовать свет?
-            Vec3d light = new Vec3d(0, 0, -1);
-            float dp = dotProduct(normal, light);
+            //проверка на видимость полигона
+            if (vectorDotProduct(normal, cameraRay) < 0) continue;
 
-            polygonProjected.color = shade(polygonProjected.color, dp);
+            //свет и цвет
+            Vec3d light = vectorNormalize(new Vec3d(0, 1, -1));
+            float dp = vectorDotProduct(normal, light);
+
+            polygonTransformed.color = shade(polygon.color, dp);
 
             //проекция на координаты экрана
-            multiplyMatrixVector(polygonTranslated.p[0], polygonProjected.p[0], projectionMatrix);
-            multiplyMatrixVector(polygonTranslated.p[1], polygonProjected.p[1], projectionMatrix);
-            multiplyMatrixVector(polygonTranslated.p[2], polygonProjected.p[2], projectionMatrix);
+            polygonProjected.p[0] = matrixMultiplyVector(projectionMatrix, polygonTransformed.p[0]);
+            polygonProjected.p[1] = matrixMultiplyVector(projectionMatrix, polygonTransformed.p[1]);
+            polygonProjected.p[2] = matrixMultiplyVector(projectionMatrix, polygonTransformed.p[2]);
 
-            //scale into view
-            polygonProjected.p[0].x += 1;
-            polygonProjected.p[0].y += 1;
 
-            polygonProjected.p[1].x += 1;
-            polygonProjected.p[1].y += 1;
+            polygonProjected.p[0] = vectorDivide(polygonProjected.p[0], polygonTransformed.p[0].w);
+            polygonProjected.p[1] = vectorDivide(polygonProjected.p[1], polygonTransformed.p[1].w);
+            polygonProjected.p[2] = vectorDivide(polygonProjected.p[2], polygonTransformed.p[2].w);
 
-            polygonProjected.p[2].x += 1;
-            polygonProjected.p[2].y += 1;
+            //scale and offset into view
+            //TODO убрать и посмотреть результат
+            Vec3d offsetVec = new Vec3d(1, 1, 0);
+            polygonProjected.p[0] = vectorAdd(polygonProjected.p[0], offsetVec);
+            polygonProjected.p[1] = vectorAdd(polygonProjected.p[1], offsetVec);
+            polygonProjected.p[2] = vectorAdd(polygonProjected.p[2], offsetVec);
 
 
             polygonProjected.p[0].x *= 0.5f * WIDTH;
@@ -294,21 +225,7 @@ public class Controller {
         canvas.render();
     }
 
-    private void multiplyMatrixVector(Vec3d i, Vec3d o, Matrix m) {
-        o.x = i.x * m.m[0][0] + i.y * m.m[1][0] + i.z * m.m[2][0] + m.m[3][0];
-        o.y = i.x * m.m[0][1] + i.y * m.m[1][1] + i.z * m.m[2][1] + m.m[3][1];
-        o.z = i.x * m.m[0][2] + i.y * m.m[1][2] + i.z * m.m[2][2] + m.m[3][2];
-        float w = i.x * m.m[0][3] + i.y * m.m[1][3] + i.z * m.m[2][3] + m.m[3][3];
 
-        if (w != 0)
-        {
-            o.x /= w; o.y /= w; o.z /= w;
-        }
-    }
-
-    private float dotProduct(Vec3d vecA, Vec3d vecB) {
-        return vecA.x * vecB.x + vecA.y * vecB.y + vecA.z * vecB.z;
-    }
 
     private Color shade(Color color, float factor) {
         factor = Math.max(0, factor);
