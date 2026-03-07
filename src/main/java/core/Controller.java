@@ -26,8 +26,8 @@ public class Controller {
     //TODO временный мусор
     private float angle;
 
-    //TODO временный мусор
-    private Vec3d camera = new Vec3d();
+    private Vec3d cameraPos = new Vec3d();
+    private Vec3d lookDir;
 
     private final Canvas canvas = new Canvas(WIDTH, HEIGHT);
 
@@ -124,8 +124,8 @@ public class Controller {
         Matrix4x4 matrixRotX = new Matrix4x4();
 
         angle += 0.03f;
-        matrixRotZ.makeRotationZ(angle);
-        matrixRotX.makeRotationX(angle);
+        matrixRotZ.makeRotationZ(0);
+        matrixRotX.makeRotationX(0);
 
         Matrix4x4 translationMatrix = new Matrix4x4();
         translationMatrix.makeTranslation(0f, 0f, 16f);
@@ -138,7 +138,16 @@ public class Controller {
                 translationMatrix
         );
 
-        Mesh model = ModelLoader.load(Paths.get("src/main/resources/SpaceShip.obj"));
+        lookDir = new Vec3d(0, 0, 1);
+        Vec3d vecUp = new Vec3d(0, 1, 0);
+        Vec3d vecTarget = vectorAdd(cameraPos, lookDir);
+
+        Matrix4x4 cameraMatrix = new Matrix4x4();
+        cameraMatrix.makePointAt(cameraPos, vecTarget, vecUp);
+        Matrix4x4 viewMatrix = matrixQuickInverse(cameraMatrix);
+
+
+        Mesh model = ModelLoader.load(Paths.get("src/main/resources/axis.obj"));
         model.setColor(new Color(255, 140, 0));
 
 
@@ -148,6 +157,7 @@ public class Controller {
         for (Polygon polygon: model.mesh) {
             Polygon polygonProjected = new Polygon();
             Polygon polygonTransformed = new Polygon();
+            Polygon polygonViewd = new Polygon();
 
             polygonTransformed.p[0] = matrixMultiplyVector(worldMatrix, polygon.p[0]);
             polygonTransformed.p[1] = matrixMultiplyVector(worldMatrix, polygon.p[1]);
@@ -162,30 +172,33 @@ public class Controller {
             //нормализация нормали
             normal = vectorNormalize(vectorCrossProduct(lineA, lineB));
 
-            //TODO изучить вопрос
-            Vec3d cameraRay = vectorSubtract(polygonTransformed.p[0], camera);
+
+            Vec3d cameraRay = vectorSubtract(polygonTransformed.p[0], cameraPos);
 
             //проверка на видимость полигона
-            if (vectorDotProduct(normal, cameraRay) < 0) continue;
+            if (vectorDotProduct(normal, cameraRay) >= 0) continue;
 
             //свет и цвет
-            Vec3d light = vectorNormalize(new Vec3d(0, 1, -1));
+            Vec3d light = vectorNormalize(new Vec3d(0, 0, -1));
             float dp = vectorDotProduct(normal, light);
 
-            polygonTransformed.color = shade(polygon.color, dp);
+            polygonProjected.color = shade(polygon.color, dp);
+
+            polygonViewd.p[0] = matrixMultiplyVector(viewMatrix, polygonTransformed.p[0]);
+            polygonViewd.p[1] = matrixMultiplyVector(viewMatrix, polygonTransformed.p[1]);
+            polygonViewd.p[2] = matrixMultiplyVector(viewMatrix, polygonTransformed.p[2]);
 
             //проекция на координаты экрана
-            polygonProjected.p[0] = matrixMultiplyVector(projectionMatrix, polygonTransformed.p[0]);
-            polygonProjected.p[1] = matrixMultiplyVector(projectionMatrix, polygonTransformed.p[1]);
-            polygonProjected.p[2] = matrixMultiplyVector(projectionMatrix, polygonTransformed.p[2]);
+            polygonProjected.p[0] = matrixMultiplyVector(projectionMatrix, polygonViewd.p[0]);
+            polygonProjected.p[1] = matrixMultiplyVector(projectionMatrix, polygonViewd.p[1]);
+            polygonProjected.p[2] = matrixMultiplyVector(projectionMatrix, polygonViewd.p[2]);
 
 
-            polygonProjected.p[0] = vectorDivide(polygonProjected.p[0], polygonTransformed.p[0].w);
-            polygonProjected.p[1] = vectorDivide(polygonProjected.p[1], polygonTransformed.p[1].w);
-            polygonProjected.p[2] = vectorDivide(polygonProjected.p[2], polygonTransformed.p[2].w);
+            polygonProjected.p[0] = vectorDivide(polygonProjected.p[0], polygonProjected.p[0].w);
+            polygonProjected.p[1] = vectorDivide(polygonProjected.p[1], polygonProjected.p[1].w);
+            polygonProjected.p[2] = vectorDivide(polygonProjected.p[2], polygonProjected.p[2].w);
 
             //scale and offset into view
-            //TODO убрать и посмотреть результат
             Vec3d offsetVec = new Vec3d(1, 1, 0);
             polygonProjected.p[0] = vectorAdd(polygonProjected.p[0], offsetVec);
             polygonProjected.p[1] = vectorAdd(polygonProjected.p[1], offsetVec);
@@ -224,8 +237,6 @@ public class Controller {
 
         canvas.render();
     }
-
-
 
     private Color shade(Color color, float factor) {
         factor = Math.max(0, factor);

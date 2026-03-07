@@ -6,7 +6,9 @@ public class Vec3d {
     public float z = 0;
     public float w = 1;
 
-    public Vec3d() {}
+    public Vec3d() {
+
+    }
 
     public Vec3d(float x, float y, float z, float w) {
         this.x = x;

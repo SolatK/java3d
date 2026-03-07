@@ -2,6 +2,8 @@ package core.graphics;
 
 import java.util.Arrays;
 
+import static core.utils.VectorMath.*;
+
 public class Matrix4x4 {
 
     public float[][] m = new float[4][4];
@@ -46,6 +48,20 @@ public class Matrix4x4 {
         m[1][1] = 1f;
         m[2][2] = (float) Math.cos(angle);
         m[3][3] = 1f;
+    }
+
+    public void makePointAt(Vec3d pos, Vec3d target, Vec3d up) {
+        Vec3d newForward = vectorNormalize(vectorSubtract(target, pos));
+
+        Vec3d a = vectorMultiply(newForward, vectorDotProduct(up, newForward));
+        Vec3d newUp = vectorNormalize(vectorSubtract(up, a));
+
+        Vec3d newRight = vectorCrossProduct(newUp, newForward);
+
+        m[0][0] = newRight.x;	m[0][1] = newRight.y;	m[0][2] = newRight.z;	m[0][3] = 0.0f;
+        m[1][0] = newUp.x;		m[1][1] = newUp.y;		m[1][2] = newUp.z;		m[1][3] = 0.0f;
+        m[2][0] = newForward.x;	m[2][1] = newForward.y;	m[2][2] = newForward.z;	m[2][3] = 0.0f;
+        m[3][0] = pos.x;		m[3][1] = pos.y;	    m[3][2] = pos.z;		m[3][3] = 1.0f;
     }
 
     public void makeTranslation(float x, float y, float z) {
