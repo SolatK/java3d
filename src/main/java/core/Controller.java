@@ -290,8 +290,59 @@ public class Controller {
         });
 
         for (Polygon polygon: polygonsToDraw) {
-            canvas.fillTriangle(polygon);
-            canvas.drawTriangle(polygon);
+
+            // Clip triangles against all four screen edges, this could yield
+            // a bunch of triangles, so create a queue that we traverse to
+            //  ensure we only test new triangles generated against planes
+
+            Polygon[] clipped;
+            Deque<Polygon> polygonDeque = new ArrayDeque<>();
+
+            // Add initial triangle
+            polygonDeque.addLast(polygon);
+            int nNewTriangles = 1;
+
+            for (int p = 0; p < 4; p++)
+            {
+
+                int nTrisToAdd = 0;
+                while (nNewTriangles > 0)
+                {
+                    clipped = new Polygon[]{new Polygon(), new Polygon()};
+                    // Take triangle from front of queue
+                    Polygon test = polygonDeque.pop();
+                    nNewTriangles--;
+
+                    // Clip it against a plane. We only need to test each
+                    // subsequent plane, against subsequent new triangles
+                    // as all triangles after a plane clip are guaranteed
+                    // to lie on the inside of the plane. I like how this
+                    // comment is almost completely and utterly justified
+                    switch (p)
+                    {
+                        case 0:	nTrisToAdd = polygonClipOnPlane(new Vec3d(0, 0, 0), new Vec3d(0, 1, 0), test, clipped); break;
+                        case 1:	nTrisToAdd = polygonClipOnPlane(new Vec3d(0, HEIGHT - 1, 0), new Vec3d(0, -1, 0), test, clipped); break;
+                        case 2:	nTrisToAdd = polygonClipOnPlane(new Vec3d(0, 0, 0),new Vec3d(1, 0, 0), test, clipped); break;
+                        case 3:	nTrisToAdd = polygonClipOnPlane(new Vec3d(WIDTH - 1, 0, 0), new Vec3d(-1, 0, 0), test, clipped); break;
+                    }
+
+                    // Clipping may yield a variable number of triangles, so
+                    // add these new ones to the back of the queue for subsequent
+                    // clipping against next planes
+                    for (int w = 0; w < nTrisToAdd; w++)
+                        polygonDeque.addLast(clipped[w]);
+                }
+                nNewTriangles = polygonDeque.size();
+            }
+
+
+            // Draw the transformed, viewed, clipped, projected, sorted, clipped triangles
+            for (Polygon p: polygonDeque)
+            {
+                canvas.fillTriangle(p);
+                canvas.drawTriangle(p);
+            }
+
         }
 
         canvas.render();
