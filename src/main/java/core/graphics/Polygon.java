@@ -47,6 +47,7 @@ public class Polygon {
                 new Vec3d(polygon.p[1].x, polygon.p[1].y, polygon.p[1].z),
                 new Vec3d(polygon.p[2].x, polygon.p[2].y, polygon.p[2].z)
         };
+        color = polygon.color;
     }
 
     public Polygon(Polygon polygon, Color color) {

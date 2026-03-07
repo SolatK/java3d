@@ -10,6 +10,13 @@ public class Vec3d {
 
     }
 
+    public Vec3d(Vec3d v) {
+        this.x = v.x;
+        this.y = v.y;
+        this.z = v.z;
+        this.w = v.w;
+    }
+
     public Vec3d(float x, float y, float z, float w) {
         this.x = x;
         this.y = y;

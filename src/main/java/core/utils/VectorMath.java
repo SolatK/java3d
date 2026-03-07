@@ -1,7 +1,11 @@
 package core.utils;
 
 import core.graphics.Matrix4x4;
+import core.graphics.Polygon;
 import core.graphics.Vec3d;
+
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 public class VectorMath {
     public static Vec3d vectorAdd(Vec3d a, Vec3d b) {
@@ -72,5 +76,112 @@ public class VectorMath {
             }
         }
         return mat;
+    }
+
+    public static Vec3d vectorIntersectPlane(Vec3d planeP, Vec3d planeN, Vec3d lineStart, Vec3d lineEnd) {
+        planeN = vectorNormalize(planeN);
+        float planeD = -vectorDotProduct(planeN, planeP);
+        float ad = vectorDotProduct(lineStart, planeN);
+        float bd = vectorDotProduct(lineEnd, planeN);
+        float t = (-planeD - ad) / (bd - ad);
+        Vec3d lineStartToEnd = vectorSubtract(lineEnd, lineStart);
+        Vec3d lineToIntersect = vectorMultiply(lineStartToEnd, t);
+        return vectorAdd(lineStart, lineToIntersect);
+    }
+
+    public static int polygonClipOnPlane(Vec3d planeP, Vec3d planeN, Polygon polyIn, Polygon[] polyOut) {
+        planeN = vectorNormalize(planeN);
+
+        // Return signed shortest distance from point to plane, plane normal must be normalised
+        BiFunction<Vec3d, Vec3d, Float> distFunction = (p, pn) -> {
+            Vec3d n = vectorNormalize(p); //todo проверить не нужно ли заменить переменную на p
+            return (pn.x * p.x + pn.y * p.y + pn.z * p.z - vectorDotProduct(pn, planeP));
+        };
+        // Create
+        // two temporary storage arrays to classify points either side of plane
+        // If distance sign is positive, point lies on "inside" of plane
+        Vec3d[] insidePoints = new Vec3d[3];  int nInsidePointCount = 0;
+        Vec3d[] outsidePoints = new Vec3d[3]; int nOutsidePointCount = 0;
+
+        // Get signed distance of each point in triangle to plane
+        float d0 = distFunction.apply(polyIn.p[0], planeN);
+        float d1 = distFunction.apply(polyIn.p[1], planeN);
+        float d2 = distFunction.apply(polyIn.p[2], planeN);
+
+        if (d0 >= 0) { insidePoints[nInsidePointCount++] = polyIn.p[0]; }
+        else { outsidePoints[nOutsidePointCount++] = polyIn.p[0]; }
+        if (d1 >= 0) { insidePoints[nInsidePointCount++] = polyIn.p[1]; }
+        else { outsidePoints[nOutsidePointCount++] = polyIn.p[1]; }
+        if (d2 >= 0) { insidePoints[nInsidePointCount++] = polyIn.p[2]; }
+        else { outsidePoints[nOutsidePointCount++] = polyIn.p[2]; }
+
+        // Now classify triangle points, and break the input triangle into
+        // smaller output triangles if required. There are four possible
+        // outcomes...
+
+        if (nInsidePointCount == 0)
+        {
+            // All points lie on the outside of plane, so clip whole triangle
+            // It ceases to exist
+
+            return 0; // No returned triangles are valid
+        }
+
+        if (nInsidePointCount == 3)
+        {
+            // All points lie on the inside of plane, so do nothing
+            // and allow the triangle to simply pass through
+            polyOut[0] = polyIn;
+
+            return 1; // Just the one returned original triangle is valid
+        }
+
+        if (nInsidePointCount == 1 && nOutsidePointCount == 2)
+        {
+            // Triangle should be clipped. As two points lie outside
+            // the plane, the triangle simply becomes a smaller triangle
+
+            // Copy appearance info to new triangle
+            polyOut[0].color = polyIn.color;
+
+            // The inside point is valid, so keep that...
+            polyOut[0].p[0] = insidePoints[0];
+
+            // but the two new points are at the locations where the
+            // original sides of the triangle (lines) intersect with the plane
+            polyOut[0].p[1] = vectorIntersectPlane(planeP, planeN, insidePoints[0], outsidePoints[0]);
+            polyOut[0].p[2] = vectorIntersectPlane(planeP, planeN, insidePoints[0], outsidePoints[1]);
+
+            return 1; // Return the newly formed single triangle
+        }
+
+        if (nInsidePointCount == 2 && nOutsidePointCount == 1)
+        {
+            // Triangle should be clipped. As two points lie inside the plane,
+            // the clipped triangle becomes a "quad". Fortunately, we can
+            // represent a quad with two new triangles
+
+            // Copy appearance info to new triangles
+            polyOut[0].color = polyIn.color;
+
+            polyOut[1].color = polyIn.color;
+
+            // The first triangle consists of the two inside points and a new
+            // point determined by the location where one side of the triangle
+            // intersects with the plane
+            polyOut[0].p[0] = insidePoints[0];
+            polyOut[0].p[1] = insidePoints[1];
+            polyOut[0].p[2] = vectorIntersectPlane(planeP, planeN, insidePoints[0], outsidePoints[0]);
+
+            // The second triangle is composed of one of he inside points, a
+            // new point determined by the intersection of the other side of the
+            // triangle and the plane, and the newly created point above
+            polyOut[1].p[0] = insidePoints[1];
+            polyOut[1].p[1] = polyOut[0].p[2];
+            polyOut[1].p[2] = vectorIntersectPlane(planeP, planeN, insidePoints[1], outsidePoints[0]);
+
+            return 2; // Return two newly formed triangles which form a quad
+        }
+        throw new RuntimeException("треугольника не нашлось как так");
     }
 }

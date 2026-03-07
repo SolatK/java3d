@@ -8,6 +8,8 @@ import core.utils.ModelLoader;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.nio.file.Paths;
@@ -28,40 +30,54 @@ public class Controller {
 
     private Vec3d cameraPos = new Vec3d();
     private Vec3d lookDir;
+    private float yaw;
 
     private final Canvas canvas = new Canvas(WIDTH, HEIGHT);
 
-    private final Deque<MouseEvent> pressedDeque = new ArrayDeque<>();
+    private final Deque<MouseEvent> mouseDeque = new ArrayDeque<>();
+    private final Deque<KeyEvent> keysDeque = new ArrayDeque<>();
 
     private final Matrix4x4 projectionMatrix = new Matrix4x4();
 
     public void run() {
         JFrame frame = frame(WIDTH, HEIGHT, canvas, "3D тест");
         frame.setResizable(false);
+
+        canvas.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                keysDeque.addLast(e);
+            }
+
+            @Override
+            public void keyTyped(KeyEvent e) {
+                keysDeque.addLast(e);
+            }
+        });
         canvas.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
-                if (pressedDeque.size() < 5) {
+                if (mouseDeque.size() < 5) {
                     if (e.getButton() == 1) {
-                        pressedDeque.addLast(e);
+                        mouseDeque.addLast(e);
                     }
                     if (e.getButton() == 3) {
-                        pressedDeque.addLast(e);
+                        mouseDeque.addLast(e);
                     }
                 }
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
-                pressedDeque.addLast(e);
+                mouseDeque.addLast(e);
             }
         });
 
         canvas.addMouseMotionListener(new MouseAdapter() {
             @Override
             public void mouseDragged(MouseEvent e) {
-                if (pressedDeque.size() > 5) return;
-                pressedDeque.addLast(e);
+                if (mouseDeque.size() > 5) return;
+                mouseDeque.addLast(e);
             }
         });
 
@@ -76,20 +92,20 @@ public class Controller {
 
         //noinspection InfiniteLoopStatement
         while (true) {
+            //TODO разобраться со временем
             now = System.nanoTime();
             elapsedTime = now - lastTime;
             lastTime = now;
 
-            frameTime = ((float) elapsedTime / 1000000000);
+            frameTime = elapsedTime / 1000000000f;
 
-            processKeys();
+            processKeys(elapsedTime / 1000000000f);
 
             //physicsEngine.tick();
 
-            render(canvas, (elapsedTime / 1000000));
+            render(canvas, elapsedTime / 1000000000f);
 
-            long timeTaken = System.nanoTime() - now;
-            waitTime = (TARGET_TIME_NANOS - timeTaken) / 1000000;
+            waitTime = (long) ((TARGET_TIME_NANOS - (frameTime / 1000)) / 1000000);
 
 
 
@@ -111,12 +127,35 @@ public class Controller {
     private int pressedFlag = 0;
     private MouseEvent lastEvent;
 
-    private void processKeys() {
+    private void processKeys(float elapsedTime) {
+        if (!keysDeque.isEmpty()) {
+            KeyEvent e = keysDeque.pop();
+            char keyChar = e.getKeyChar();
+
+            Vec3d forward = vectorMultiply(lookDir, 8 * elapsedTime);
+            if (keyChar == 'w') {
+                cameraPos = vectorAdd(cameraPos, forward);
+            } else if (keyChar == 's') {
+                cameraPos = vectorSubtract(cameraPos, forward);
+            } else if (keyChar == ' ') {
+                cameraPos.y += 8 * elapsedTime;
+            } else if (keyChar == 'c') {
+                cameraPos.y -= 8 * elapsedTime;
+            } else if (keyChar == 'a') {
+                cameraPos.x += 8 * elapsedTime;
+            } else if (keyChar == 'd') {
+                cameraPos.x -= 8 * elapsedTime;
+            }  else if (keyChar == 'q') {
+                yaw -= 2 * elapsedTime;
+            } else if (keyChar == 'e') {
+                yaw += 2 * elapsedTime;
+            }
+        }
 
     }
 
 
-    private void render(Canvas canvas, long frameTime) {
+    private void render(Canvas canvas, float frameTime) {
         canvas.newFrame();
         canvas.drawFPS(frameTime);
 
@@ -138,9 +177,13 @@ public class Controller {
                 translationMatrix
         );
 
-        lookDir = new Vec3d(0, 0, 1);
         Vec3d vecUp = new Vec3d(0, 1, 0);
-        Vec3d vecTarget = vectorAdd(cameraPos, lookDir);
+        Vec3d vecTarget = new Vec3d(0, 0, 1);
+        Matrix4x4 cameraRotation = new Matrix4x4();
+        cameraRotation.makeRotationY(yaw);
+        lookDir = matrixMultiplyVector(cameraRotation, vecTarget);
+        vecTarget = vectorAdd(cameraPos, lookDir);
+
 
         Matrix4x4 cameraMatrix = new Matrix4x4();
         cameraMatrix.makePointAt(cameraPos, vecTarget, vecUp);
@@ -188,41 +231,56 @@ public class Controller {
             polygonViewd.p[1] = matrixMultiplyVector(viewMatrix, polygonTransformed.p[1]);
             polygonViewd.p[2] = matrixMultiplyVector(viewMatrix, polygonTransformed.p[2]);
 
-            //проекция на координаты экрана
-            polygonProjected.p[0] = matrixMultiplyVector(projectionMatrix, polygonViewd.p[0]);
-            polygonProjected.p[1] = matrixMultiplyVector(projectionMatrix, polygonViewd.p[1]);
-            polygonProjected.p[2] = matrixMultiplyVector(projectionMatrix, polygonViewd.p[2]);
 
-
-            polygonProjected.p[0] = vectorDivide(polygonProjected.p[0], polygonProjected.p[0].w);
-            polygonProjected.p[1] = vectorDivide(polygonProjected.p[1], polygonProjected.p[1].w);
-            polygonProjected.p[2] = vectorDivide(polygonProjected.p[2], polygonProjected.p[2].w);
-
-            //scale and offset into view
-            Vec3d offsetVec = new Vec3d(1, 1, 0);
-            polygonProjected.p[0] = vectorAdd(polygonProjected.p[0], offsetVec);
-            polygonProjected.p[1] = vectorAdd(polygonProjected.p[1], offsetVec);
-            polygonProjected.p[2] = vectorAdd(polygonProjected.p[2], offsetVec);
-
-
-            polygonProjected.p[0].x *= 0.5f * WIDTH;
-            polygonProjected.p[0].y *= 0.5f * HEIGHT;
-
-            polygonProjected.p[1].x *= 0.5f * WIDTH;
-            polygonProjected.p[1].y *= 0.5f * HEIGHT;
-
-            polygonProjected.p[2].x *= 0.5f * WIDTH;
-            polygonProjected.p[2].y *= 0.5f * HEIGHT;
-
-            /*canvas.fillTriangle(
-                    (int) polygonProjected.p[0].x, (int) polygonProjected.p[0].y,
-                    (int) polygonProjected.p[1].x, (int) polygonProjected.p[1].y,
-                    (int) polygonProjected.p[2].x, (int) polygonProjected.p[2].y,
-                    new Color((int) Math.max(0, dp * 255), (int) Math.max(0, dp * 255), 0)
+            //обрезка полигонов
+            Polygon [] clipped = {new Polygon(), new Polygon()};
+            int clippedPolygons = polygonClipOnPlane(
+                    new Vec3d(0,0,0.1f),
+                    new Vec3d(0,0,1f),
+                    polygonViewd,
+                    clipped
             );
-             */
 
-            polygonsToDraw.add(polygonProjected);
+            for (int i = 0; i < clippedPolygons; i++) {
+
+                //проекция на координаты экрана
+                polygonProjected.p[0] = matrixMultiplyVector(projectionMatrix, clipped[i].p[0]);
+                polygonProjected.p[1] = matrixMultiplyVector(projectionMatrix, clipped[i].p[1]);
+                polygonProjected.p[2] = matrixMultiplyVector(projectionMatrix, clipped[i].p[2]);
+
+
+                polygonProjected.p[0] = vectorDivide(polygonProjected.p[0], polygonProjected.p[0].w);
+                polygonProjected.p[1] = vectorDivide(polygonProjected.p[1], polygonProjected.p[1].w);
+                polygonProjected.p[2] = vectorDivide(polygonProjected.p[2], polygonProjected.p[2].w);
+
+
+                //x и y перевернуты
+                polygonProjected.p[0].x *= -1.0f;
+                polygonProjected.p[1].x *= -1.0f;
+                polygonProjected.p[2].x *= -1.0f;
+                polygonProjected.p[0].y *= -1.0f;
+                polygonProjected.p[1].y *= -1.0f;
+                polygonProjected.p[2].y *= -1.0f;
+
+
+                //scale and offset into view
+                Vec3d offsetVec = new Vec3d(1, 1, 0);
+                polygonProjected.p[0] = vectorAdd(polygonProjected.p[0], offsetVec);
+                polygonProjected.p[1] = vectorAdd(polygonProjected.p[1], offsetVec);
+                polygonProjected.p[2] = vectorAdd(polygonProjected.p[2], offsetVec);
+
+
+                polygonProjected.p[0].x *= 0.5f * WIDTH;
+                polygonProjected.p[0].y *= 0.5f * HEIGHT;
+
+                polygonProjected.p[1].x *= 0.5f * WIDTH;
+                polygonProjected.p[1].y *= 0.5f * HEIGHT;
+
+                polygonProjected.p[2].x *= 0.5f * WIDTH;
+                polygonProjected.p[2].y *= 0.5f * HEIGHT;
+
+                polygonsToDraw.add(new Polygon(polygonProjected));
+            }
         }
 
         polygonsToDraw.sort((s1, s2) -> {
@@ -233,13 +291,14 @@ public class Controller {
 
         for (Polygon polygon: polygonsToDraw) {
             canvas.fillTriangle(polygon);
+            canvas.drawTriangle(polygon);
         }
 
         canvas.render();
     }
 
     private Color shade(Color color, float factor) {
-        factor = Math.max(0, factor);
+        factor = Math.max(0.1f, factor);
         return new Color(
                 (int) (color.getRed() * factor),
                 (int) (color.getGreen() * factor),

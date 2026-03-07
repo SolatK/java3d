@@ -32,8 +32,8 @@ public class Canvas extends java.awt.Canvas {
         } while (bs.contentsLost());
     }
 
-    public void drawFPS(long frameTime) {
-        int fps = (int) (1000 / (frameTime + 1));
+    public void drawFPS(float frameTime) {
+        int fps = (int) (1 / frameTime);
         g.setColor(Color.white);
         g.drawString(Long.toString(fps), 10, 10);
     }
@@ -43,6 +43,15 @@ public class Canvas extends java.awt.Canvas {
         g.drawLine(x1, y1, x2, y2);
         g.drawLine(x2, y2, x3, y3);
         g.drawLine(x3, y3, x1, y1);
+    }
+
+    public void drawTriangle(Polygon polygon) {
+        g.setColor(Color.green);
+        g.drawPolygon(
+                new int[]{(int) polygon.p[0].x, (int) polygon.p[1].x, (int) polygon.p[2].x},
+                new int[]{(int) polygon.p[0].y, (int) polygon.p[1].y, (int) polygon.p[2].y},
+                3
+        );
     }
 
     public void fillTriangle(int x1, int y1, int x2, int y2, int x3, int y3, Color color) {
