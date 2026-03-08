@@ -46,12 +46,9 @@ public class Controller {
         canvas.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {
-                keysDeque.addLast(e);
-            }
-
-            @Override
-            public void keyTyped(KeyEvent e) {
-                keysDeque.addLast(e);
+                if (keysDeque.size() < 5) {
+                    keysDeque.addLast(e);
+                }
             }
         });
         canvas.addMouseListener(new MouseAdapter() {
@@ -132,19 +129,21 @@ public class Controller {
             KeyEvent e = keysDeque.pop();
             char keyChar = e.getKeyChar();
 
-            Vec3d forward = vectorMultiply(lookDir, 8 * elapsedTime);
+            Vec3d forward = vectorMultiply(lookDir, MOVE_SPEED * elapsedTime);
+
+            Vec3d right = vectorCrossProduct(new Vec3d(0, 1, 0), forward);
             if (keyChar == 'w') {
                 cameraPos = vectorAdd(cameraPos, forward);
             } else if (keyChar == 's') {
                 cameraPos = vectorSubtract(cameraPos, forward);
             } else if (keyChar == ' ') {
-                cameraPos.y += 8 * elapsedTime;
+                cameraPos.y += MOVE_SPEED * elapsedTime;
             } else if (keyChar == 'c') {
-                cameraPos.y -= 8 * elapsedTime;
+                cameraPos.y -= MOVE_SPEED * elapsedTime;
             } else if (keyChar == 'a') {
-                cameraPos.x += 8 * elapsedTime;
+                cameraPos = vectorAdd(cameraPos, right);
             } else if (keyChar == 'd') {
-                cameraPos.x -= 8 * elapsedTime;
+                cameraPos = vectorSubtract(cameraPos, right);
             }  else if (keyChar == 'q') {
                 yaw -= 2 * elapsedTime;
             } else if (keyChar == 'e') {
@@ -190,7 +189,7 @@ public class Controller {
         Matrix4x4 viewMatrix = matrixQuickInverse(cameraMatrix);
 
 
-        Mesh model = ModelLoader.load(Paths.get("src/main/resources/axis.obj"));
+        Mesh model = ModelLoader.load(Paths.get("src/main/resources/mountains.obj"));
         model.setColor(new Color(255, 140, 0));
 
 
@@ -222,7 +221,7 @@ public class Controller {
             if (vectorDotProduct(normal, cameraRay) >= 0) continue;
 
             //свет и цвет
-            Vec3d light = vectorNormalize(new Vec3d(0, 0, -1));
+            Vec3d light = vectorNormalize(new Vec3d(0, 1, -1));
             float dp = vectorDotProduct(normal, light);
 
             polygonProjected.color = shade(polygon.color, dp);
@@ -340,7 +339,7 @@ public class Controller {
             for (Polygon p: polygonDeque)
             {
                 canvas.fillTriangle(p);
-                canvas.drawTriangle(p);
+                //canvas.drawTriangle(p);
             }
 
         }
