@@ -2,10 +2,13 @@ package core;
 
 import entity.Camera;
 import entity.Chunk;
+import graphics.Mesh;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector3i;
 import org.lwjgl.opengl.GL;
+import utils.ChunkStatus;
+import utils.MeshGenerator;
 import utils.RaycastResult;
 
 import java.io.IOException;
@@ -41,7 +44,7 @@ public class Controller {
         float aspect = (float) width / height;
         float fovVertical = (float) (2 * Math.atan(Math.tan(Math.toRadians(hFov) / 2) / aspect));
 
-        Matrix4f projection = new Matrix4f().perspective(fovVertical, aspect, 0.1f, 1000f);
+        Matrix4f projection = new Matrix4f().perspective(fovVertical, aspect, 0.1f, 5000f);
 
 
 
@@ -112,6 +115,7 @@ public class Controller {
 
         glfwDestroyWindow(window);
         glfwTerminate();
+        world.destroy();
     }
 
     List<Object> gameObjects;
@@ -132,12 +136,25 @@ public class Controller {
     }
 
     private void updateGame() {
+        while (!world.getReadyToUpload().isEmpty()) {
+            Chunk chunk = world.getReadyToUpload().poll();
+
+            // ВАЖНО: Выполняем OpenGL команды здесь
+            Mesh mesh = MeshGenerator.uploadMesh(chunk.getMeshData());
+            chunk.setMesh(mesh);
+            chunk.setStatus(ChunkStatus.READY);
+
+            // Очищаем массив в оперативной памяти (он уже в видеокарте)
+            chunk.setMeshData(null);
+        }
+
         Vector3f playerPos = camera.getPos();
         // 1. Определяем, в каком чанке стоит игрок прямо сейчас
         int pCX = (int) Math.floor(playerPos.x / World.CHUNK_SIZE);
         int pCZ = (int) Math.floor(playerPos.z / World.CHUNK_SIZE);
 
         // 2. Проходим циклом по области вокруг игрока
+        //todo сделать центральные чанки приоритетнее
         for (int x = -renderDistance; x <= renderDistance; x++) {
             for (int z = -renderDistance; z <= renderDistance; z++) {
                 for (int cy = -depth; cy <= depth; cy++) {
@@ -147,7 +164,7 @@ public class Controller {
                     int cz = pCZ + z;
 
                     // 3. Используем computeIfAbsent для создания чанка, если его нет
-                    world.generateChunk(cx, cy, cz);
+                    world.requestChunk(cx, cy, cz);
                 }
             }
         }
@@ -162,7 +179,7 @@ public class Controller {
     private boolean pressed = false;
 
     private void handleInput() {
-        float speed = 0.5f;
+        float speed = 2f;
         Vector3f forward = camera.getFront();
         Vector3f up = camera.getUp();
         Vector3f pos = camera.getPos();

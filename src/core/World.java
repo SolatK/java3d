@@ -1,33 +1,59 @@
 package core;
 
 import entity.Chunk;
-import graphics.Mesh;
-import graphics.MeshData;
 import org.joml.Math;
 import org.joml.Vector3f;
 import org.joml.Vector3i;
 import utils.ChunkGenerator;
+import utils.ChunkStatus;
+import utils.MeshGenerator;
 import utils.RaycastResult;
 
 import java.util.*;
+import java.util.concurrent.*;
 
-import static core.Config.depth;
+import static core.Config.chunkPerFrame;
 import static core.Config.isoLevel;
 
 public class World {
-    private final  Map<Vector3i, Chunk> chunks = new HashMap<>();
-
-    private final Set<Chunk> dirtyChunks = new HashSet<>();
+    private final Map<Vector3i, Chunk> chunks = new ConcurrentHashMap<>();
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() - 1);
+    private final Queue<Chunk> readyToUpload = new ConcurrentLinkedQueue<>();
+    private final Set<Chunk> dirtyChunks = Collections.synchronizedSet(new LinkedHashSet<>());
 
     public static final int CHUNK_SIZE = 32;
 
-    public Chunk generateChunk(int cx, int cy, int cz) {
-        return chunks.computeIfAbsent(new Vector3i(cx, cy, cz), key -> {
-            Chunk chunk = new Chunk(cx, cy, cz);
-            ChunkGenerator.fillAndGenerate(chunk);
+    public void requestChunk(int cx, int cy, int cz) {
+        Vector3i key = new Vector3i(cx, cy, cz);
+        Chunk chunk = chunks.computeIfAbsent(key, k -> new Chunk(cx, cy, cz));
 
-            return chunk;
-        });
+        if (chunk.getStatus() == ChunkStatus.EMPTY) {
+            chunk.setStatus(ChunkStatus.GENERATING_BLOCKS);
+            submitChunk(chunk);
+        }
+    }
+
+    private void submitChunk(Chunk chunk) {
+        threadPool.submit(() -> generateChunk(chunk));
+    }
+
+
+    private void generateChunk(Chunk chunk) {
+        if (chunk.getStatus() == ChunkStatus.GENERATING_BLOCKS) {
+            ChunkGenerator.fillChunk(chunk);
+            chunk.setStatus(ChunkStatus.BLOCKS_READY);
+        }
+
+        if (chunk.getStatus() == ChunkStatus.BLOCKS_READY) {
+            chunk.setMeshData(MeshGenerator.generateChunkMeshData(chunk, this));
+            chunk.setStatus(ChunkStatus.GENERATING_MESH);
+        }
+
+        if (chunk.getStatus() == ChunkStatus.REGENERATING_MESH) {
+            chunk.setMeshData(MeshGenerator.generateChunkMeshData(chunk, this));
+        }
+
+        readyToUpload.add(chunk);
     }
 
     public void setDensity(float wx, float wy, float wz, int value) {
@@ -55,15 +81,17 @@ public class World {
     }
 
     public int getDensity(float wx, float wy, float wz) {
-        // 1. Находим координаты чанка
+
         int cx = (int) Math.floor(wx / CHUNK_SIZE);
         int cy = (int) Math.floor(wy / CHUNK_SIZE);
         int cz = (int) Math.floor(wz / CHUNK_SIZE);
 
         Chunk chunk = chunks.get(new Vector3i(cx, cy, cz));
 
-        if (chunk != null) {
-            // 2. Локальные координаты внутри чанка
+
+
+        //если чанк есть и сгенерирован
+        if (chunk != null && chunk.getStatus().code >= ChunkStatus.BLOCKS_READY.code) {
             int lx = (int) (wx - (cx * CHUNK_SIZE));
             int ly = (int) (wy - (cy * CHUNK_SIZE));
             int lz = (int) (wz - (cz * CHUNK_SIZE));
@@ -143,19 +171,32 @@ public class World {
     public void updateDirtyChunks() {
         if (dirtyChunks.isEmpty()) return;
 
-
-
         // Ограничиваем количество пересборок мешей за 1 кадр (например, 2-3 чанка)
         // Это предотвращает резкое падение FPS (лаги)
         int updatesThisFrame = 0;
-        int maxUpdatesPerFrame = 2;
 
         Iterator<Chunk> iterator = dirtyChunks.iterator();
-        while (iterator.hasNext() && updatesThisFrame < maxUpdatesPerFrame) {
+        while (iterator.hasNext() && updatesThisFrame < chunkPerFrame) {
             Chunk chunk = iterator.next();
-            chunk.updateMesh();
+            chunk.setStatus(ChunkStatus.REGENERATING_MESH);
+            generateChunk(chunk);
             iterator.remove();
             updatesThisFrame++;
+        }
+    }
+
+    public Queue<Chunk> getReadyToUpload() {
+        return readyToUpload;
+    }
+
+    public void destroy() {
+        threadPool.shutdown();
+        try {
+            if (!threadPool.awaitTermination(10, TimeUnit.SECONDS)) {
+                threadPool.shutdownNow(); // Принудительно прерывает выполнение
+            }
+        } catch (InterruptedException e) {
+            threadPool.shutdownNow();
         }
     }
 }

@@ -13,6 +13,8 @@ public abstract class Renderable {
 
     public Mesh getMesh() { return mesh; }
 
+    public void setMesh(Mesh mesh) { this.mesh = mesh; }
+
     public Matrix4f getModelMatrix() { return modelMatrix; }
 
     public Vector3f getPosition() {

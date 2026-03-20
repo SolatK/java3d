@@ -1,16 +1,22 @@
 package entity;
 
 import core.World;
+import graphics.Mesh;
 import graphics.MeshData;
 import org.joml.Vector3f;
-import utils.ChunkGenerator;
-import utils.MeshGenerator;
+import utils.ChunkStatus;
+
+import static core.World.CHUNK_SIZE;
 
 public class Chunk extends Renderable{
 
+    private volatile ChunkStatus status = ChunkStatus.EMPTY;
+    private MeshData meshData;
+
     private final short[] data;
 
-    public static int stride = World.CHUNK_SIZE + 1;
+    public static int stride = CHUNK_SIZE + 1;
+
 
     @Override
     public void updateModelMatrix() {
@@ -21,9 +27,9 @@ public class Chunk extends Renderable{
 
     public Chunk(int cx, int cy, int cz) {
         this.position = new Vector3f(
-                cx * World.CHUNK_SIZE,
-                cy * World.CHUNK_SIZE,
-                cz * World.CHUNK_SIZE
+                cx * CHUNK_SIZE,
+                cy * CHUNK_SIZE,
+                cz * CHUNK_SIZE
                 );
         this.data = new short[stride * stride * stride];
     }
@@ -31,6 +37,15 @@ public class Chunk extends Renderable{
     public int getDensity(int x, int y, int z) {
         short val = data[x + y * stride + z * stride * stride];
         return val & 0xFF; // Маскируем младшие 8 бит
+    }
+
+    public int getDensityGlobal(int x, int y, int z, World world) {
+
+        if (x >= 0 && x < CHUNK_SIZE && y >= 0 && y < CHUNK_SIZE && z >= 0 && z < CHUNK_SIZE) {
+            return this.getDensity(x, y, z);
+        }
+        // Если вышли за границы — запрашиваем у World (чуть медленнее)
+        return world.getDensity(this.position.x + x, this.position.y + y, this.position.z + z);
     }
 
     public int getMaterial(int x, int y, int z) {
@@ -58,8 +73,23 @@ public class Chunk extends Renderable{
         data[index] = (short) (((material & 0xFF) << 8) | (density & 0xFF));
     }
 
-    public void updateMesh() {
-        MeshData data = MeshGenerator.generateChunkMeshData(this);
-        mesh = MeshGenerator.generateMesh(data);
+    public void updateMesh(Mesh mesh) {
+        this.mesh = mesh;
+    }
+
+    public void setStatus(ChunkStatus status) {
+        this.status = status;
+    }
+
+    public ChunkStatus getStatus() {
+        return status;
+    }
+
+    public MeshData getMeshData() {
+        return meshData;
+    }
+
+    public void setMeshData(MeshData meshData) {
+        this.meshData = meshData;
     }
 }

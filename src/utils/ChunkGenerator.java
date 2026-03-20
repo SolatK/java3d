@@ -59,9 +59,4 @@ public class ChunkGenerator {
             }
         }
     }
-
-    public static void fillAndGenerate(Chunk chunk) {
-        ChunkGenerator.fillChunk(chunk);
-        chunk.updateMesh();
-    }
 }

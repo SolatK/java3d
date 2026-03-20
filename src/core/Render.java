@@ -7,6 +7,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector3i;
 import shader.ShaderProgram;
+import utils.ChunkStatus;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -64,6 +65,8 @@ public class Render {
 
         //todo луп по всем чанкам
         for (Chunk chunk: chunks.values()) {
+            //пропускаем неготовый чанк
+            if (chunk.getStatus() != ChunkStatus.READY && chunk.getStatus() != ChunkStatus.REGENERATING_MESH ) continue;
             Matrix4f model = chunk.getModelMatrix();
             model.identity().translate(chunk.getPosition());
             //оптимизировать чтобы не считать матрицу модели каждый кадр

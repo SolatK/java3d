@@ -21,7 +21,7 @@ import static org.lwjgl.opengl.GL20C.glVertexAttribPointer;
 import static org.lwjgl.opengl.GL30C.*;
 
 public class MeshGenerator {
-    public static MeshData generateChunkMeshData(Chunk chunk) {
+    public static MeshData generateChunkMeshData(Chunk chunk, World world) {
         List<Float> vertices = new ArrayList<>();
         List<Integer> indices = new ArrayList<>();
         List<Integer> materials = new ArrayList<>();
@@ -36,7 +36,13 @@ public class MeshGenerator {
 
                     for (int i = 0; i < 8; i++) {
                         Vector3i offset = CubeData.OFFSETS[i];
-                        cubeValues[i] = chunk.getDensity(x + offset.x, y + offset.y, z + offset.z);
+                        //небольшой костыль. При первой генерации мы берем информацию из самого чанка
+                        // с учетом stride, а при изменении уже из соседнего чанка, это гарантирует что он сгенерирован
+                        if (chunk.getStatus().code >= ChunkStatus.REGENERATING_MESH.code) {
+                            cubeValues[i] = chunk.getDensityGlobal(x + offset.x, y + offset.y, z + offset.z, world);
+                        } else {
+                            cubeValues[i] = chunk.getDensity(x + offset.x, y + offset.y, z + offset.z);
+                        }
                     }
 
                     // 2. Определяем индекс конфигурации (от 0 до 255)
@@ -166,7 +172,7 @@ public class MeshGenerator {
     }
 
     //для чанка
-    public static Mesh generateMesh(MeshData data) {
+    public static Mesh uploadMesh(MeshData data) {
         int vaoId = glGenVertexArrays();
 
         IntBuffer idxBuffer = MemoryUtil.memAllocInt(data.indices().length);
