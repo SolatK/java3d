@@ -1,5 +1,6 @@
 package entity;
 
+import core.World;
 import graphics.MeshData;
 import org.joml.Vector3f;
 import utils.ChunkGenerator;
@@ -9,9 +10,7 @@ public class Chunk extends Renderable{
 
     private final short[] data;
 
-    public static int SIZE = 32;
-
-    public static int stride = SIZE + 1;
+    public static int stride = World.CHUNK_SIZE + 1;
 
     @Override
     public void updateModelMatrix() {
@@ -20,10 +19,13 @@ public class Chunk extends Renderable{
     }
 
 
-    public Chunk(Vector3f position) {
-        this.position = position;
+    public Chunk(int cx, int cy, int cz) {
+        this.position = new Vector3f(
+                cx * World.CHUNK_SIZE,
+                cy * World.CHUNK_SIZE,
+                cz * World.CHUNK_SIZE
+                );
         this.data = new short[stride * stride * stride];
-        fillAndGenerate();
     }
 
     public int getDensity(int x, int y, int z) {
@@ -56,8 +58,7 @@ public class Chunk extends Renderable{
         data[index] = (short) (((material & 0xFF) << 8) | (density & 0xFF));
     }
 
-    public void fillAndGenerate() {
-        ChunkGenerator.fillChunk(this);
+    public void updateMesh() {
         MeshData data = MeshGenerator.generateChunkMeshData(this);
         mesh = MeshGenerator.generateMesh(data);
     }

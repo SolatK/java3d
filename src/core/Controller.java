@@ -6,6 +6,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.joml.Vector3i;
 import org.lwjgl.opengl.GL;
+import utils.RaycastResult;
 
 import java.io.IOException;
 import java.util.List;
@@ -25,6 +26,8 @@ public class Controller {
     private Camera camera = new Camera(new Vector3f(0, 0, 0));
 
     private Render render;
+
+    private World world;
 
     //мышь
     private boolean firstMouse = true;
@@ -80,6 +83,8 @@ public class Controller {
 
         GL.createCapabilities();
 
+        world = new World();
+
         try {
             render = new Render();
         } catch (IOException e) {
@@ -109,7 +114,6 @@ public class Controller {
         glfwTerminate();
     }
 
-    Map<Vector3i, Chunk> chunks;
     List<Object> gameObjects;
 
 
@@ -118,7 +122,8 @@ public class Controller {
             //клавомыш и может потом прочее
             handleInput();
 
-            render.render(camera, gameObjects, chunks);
+            updateGame();
+            render.render(camera, gameObjects, world);
 
             glfwSwapBuffers(window);
             glfwPollEvents();
@@ -126,11 +131,38 @@ public class Controller {
         }
     }
 
+    private void updateGame() {
+        Vector3f playerPos = camera.getPos();
+        // 1. Определяем, в каком чанке стоит игрок прямо сейчас
+        int pCX = (int) Math.floor(playerPos.x / World.CHUNK_SIZE);
+        int pCZ = (int) Math.floor(playerPos.z / World.CHUNK_SIZE);
+
+        // 2. Проходим циклом по области вокруг игрока
+        for (int x = -renderDistance; x <= renderDistance; x++) {
+            for (int z = -renderDistance; z <= renderDistance; z++) {
+                for (int cy = -depth; cy <= depth; cy++) {
+                    // Для бесконечного плоского мира перебираем X и Z.
+                    // Если нужны пещеры вверх-вниз, добавь цикл по Y.
+                    int cx = pCX + x;
+                    int cz = pCZ + z;
+
+                    // 3. Используем computeIfAbsent для создания чанка, если его нет
+                    world.generateChunk(cx, cy, cz);
+                }
+            }
+        }
+
+        world.updateDirtyChunks();
+
+        // 4. (Опционально) Удаление слишком далеких чанков
+        // removeFarChunks(pCX, pCZ);
+    }
+
 
     private boolean pressed = false;
 
     private void handleInput() {
-        float speed = 0.05f;
+        float speed = 0.5f;
         Vector3f forward = camera.getFront();
         Vector3f up = camera.getUp();
         Vector3f pos = camera.getPos();
@@ -159,14 +191,21 @@ public class Controller {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !pressed) {
-            //shoot(Materials.SAND);
+            RaycastResult hit = world.raycast(camera.getPos(), camera.getFront(), 50.0f);
+            if (hit != null) {
+                // Уменьшаем плотность (копаем)
+                world.modifyTerrain(hit.worldPos(), 5f, -10);
+            }
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
             pressed = true;
         }
-        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS && !pressed) {
-            //shoot(Materials.AIR);
+        if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+            RaycastResult hit = world.raycast(camera.getPos(), camera.getFront(), 50.0f);
+            if (hit != null) {
+                // Уменьшаем плотность (копаем)
+                world.modifyTerrain(hit.worldPos(), 5f, -1);
+            }
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            pressed = true;
         }
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_RELEASE && glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_RELEASE) {
             pressed = false;

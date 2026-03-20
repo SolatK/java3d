@@ -41,41 +41,42 @@ public class Render {
     //debug
     Chunk chunk;
     {
-        chunk = new Chunk(new Vector3f(0, 0, 0));
+        chunk = new Chunk(0, 0, 0);
     }
-    public void render(Camera camera, List<Object> gameObjects, Map<Vector3i, Chunk> chunks) {
+    public void render(Camera camera, List<Object> gameObjects, World world) {
         prepare();
         view = camera.getViewMatrix();
 
         //дебаг режим отрисовки только вершин для дебага
         //glPolygonMode(GL_FRONT_AND_BACK, GL_POINT);
         //glPointSize(5.0f);
+        renderChunks(world.getChunks());
 
+
+
+    }
+
+    private void renderChunks(Map<Vector3i, Chunk> chunks) {
         //todo вынести всё это в рендер чанкс
         terrainShader.bind();
         terrainShader.setUniform("projectionMatrix", projection);
         terrainShader.setUniform("viewMatrix", view);
 
         //todo луп по всем чанкам
-        Matrix4f model = chunk.getModelMatrix();
-        model.identity().translate(chunk.getPosition());
+        for (Chunk chunk: chunks.values()) {
+            Matrix4f model = chunk.getModelMatrix();
+            model.identity().translate(chunk.getPosition());
+            //оптимизировать чтобы не считать матрицу модели каждый кадр
+            terrainShader.setUniform("modelMatrix", chunk.getModelMatrix());
+            Mesh mesh = chunk.getMesh();
+            glBindVertexArray(mesh.vaoId());
 
-        //оптимизировать чтобы не считать матрицу модели каждый кадр
-        terrainShader.setUniform("modelMatrix", chunk.getModelMatrix());
+            glDrawElements(GL_TRIANGLES, mesh.vertexCount(), GL_UNSIGNED_INT, 0);
 
-        Mesh mesh = chunk.getMesh();
-        glBindVertexArray(mesh.vaoId());
-
-        glDrawElements(GL_TRIANGLES, mesh.vertexCount(), GL_UNSIGNED_INT, 0);
+        }
 
         glBindVertexArray(0);
         terrainShader.unbind();
-
-
-    }
-
-    private void renderChunks(List<Chunk> chunks, Camera camera) {
-
     }
 
     private void prepare() {

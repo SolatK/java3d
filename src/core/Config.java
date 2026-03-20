@@ -14,6 +14,9 @@ public class Config {
     public static String title = "Game";
     public static boolean vSync = true;
     public static float hFov = 90;
+    public static int renderDistance = 5;
+    public static float isoLevel = 128;
+    public static int depth = 3;
 
     public static void load() {
         try (FileInputStream fis = new FileInputStream(FILE_PATH)) {
@@ -26,6 +29,9 @@ public class Config {
             title = properties.getProperty("window.title", "My Game");
             vSync = Boolean.parseBoolean(properties.getProperty("window.vSync", "true"));
             hFov = Float.parseFloat(properties.getProperty("window.horizontalFov", "90"));
+            renderDistance = Integer.parseInt(properties.getProperty("world.renderDistance", "5"));
+            isoLevel = Float.parseFloat(properties.getProperty("world.isoLevel", "128"));
+            depth = Integer.parseInt(properties.getProperty("world.depth", "3"));
 
             System.out.println("Конфигурация успешно загружена.");
         } catch (IOException e) {

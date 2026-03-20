@@ -1,5 +1,6 @@
 package utils;
 
+import core.World;
 import entity.Chunk;
 import graphics.Mesh;
 import graphics.MeshData;
@@ -12,24 +13,27 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
+import static core.Config.isoLevel;
 import static org.lwjgl.opengl.GL11C.GL_FLOAT;
 import static org.lwjgl.opengl.GL15C.*;
 import static org.lwjgl.opengl.GL20C.glEnableVertexAttribArray;
 import static org.lwjgl.opengl.GL20C.glVertexAttribPointer;
-import static org.lwjgl.opengl.GL30C.glBindVertexArray;
-import static org.lwjgl.opengl.GL30C.glGenVertexArrays;
+import static org.lwjgl.opengl.GL30C.*;
 
 public class MeshGenerator {
     public static MeshData generateChunkMeshData(Chunk chunk) {
         List<Float> vertices = new ArrayList<>();
         List<Integer> indices = new ArrayList<>();
+        List<Integer> materials = new ArrayList<>();
         int vertexCount = 0;
+        int size = World.CHUNK_SIZE;
 
-        for (int z = 0; z < Chunk.SIZE; z++) {
-            for (int y = 0; y < Chunk.SIZE; y++) {
-                for (int x = 0; x < Chunk.SIZE; x++) {
+        for (int z = 0; z < size; z++) {
+            for (int y = 0; y < size; y++) {
+                for (int x = 0; x < size; x++) {
                     // 1. Собираем плотность в 8 углах текущего куба
-                    float[] cubeValues = new float[8];
+                    int[] cubeValues = new int[8];
+
                     for (int i = 0; i < 8; i++) {
                         Vector3i offset = CubeData.OFFSETS[i];
                         cubeValues[i] = chunk.getDensity(x + offset.x, y + offset.y, z + offset.z);
@@ -37,14 +41,14 @@ public class MeshGenerator {
 
                     // 2. Определяем индекс конфигурации (от 0 до 255)
                     int cubeIndex = 0;
-                    if (cubeValues[0] > 128) cubeIndex |= 1;
-                    if (cubeValues[1] > 128) cubeIndex |= 2;
-                    if (cubeValues[2] > 128) cubeIndex |= 4;
-                    if (cubeValues[3] > 128) cubeIndex |= 8;
-                    if (cubeValues[4] > 128) cubeIndex |= 16;
-                    if (cubeValues[5] > 128) cubeIndex |= 32;
-                    if (cubeValues[6] > 128) cubeIndex |= 64;
-                    if (cubeValues[7] > 128) cubeIndex |= 128;
+                    if (cubeValues[0] > isoLevel) cubeIndex |= 1;
+                    if (cubeValues[1] > isoLevel) cubeIndex |= 2;
+                    if (cubeValues[2] > isoLevel) cubeIndex |= 4;
+                    if (cubeValues[3] > isoLevel) cubeIndex |= 8;
+                    if (cubeValues[4] > isoLevel) cubeIndex |= 16;
+                    if (cubeValues[5] > isoLevel) cubeIndex |= 32;
+                    if (cubeValues[6] > isoLevel) cubeIndex |= 64;
+                    if (cubeValues[7] > isoLevel) cubeIndex |= 128;
 
                     // 3. Генерируем треугольники по таблице
                     int[] edges = TriTable.TRIANGLE_TABLE[cubeIndex];
@@ -62,7 +66,26 @@ public class MeshGenerator {
                             vertices.add(pos.y);
                             vertices.add(pos.z);
 
-                            // Добавляем нормали (пока можно заглушку или рассчитать по градиенту плотности)
+                            // --- ЛОГИКА МАТЕРИАЛА ---
+                            // Узнаем, какие два угла (0-7) соединяет текущее ребро
+                            int v1Idx = CubeData.EDGE_CONNECTIONS[edgeIdx][0];
+                            int v2Idx = CubeData.EDGE_CONNECTIONS[edgeIdx][1];
+
+                            // Получаем их мировые (относительно чанка) координаты
+                            Vector3i o1 = CubeData.OFFSETS[v1Idx];
+                            Vector3i o2 = CubeData.OFFSETS[v2Idx];
+
+                            // Выбираем материал того вокселя, у которого плотность выше порога
+                            int mat;
+                            if (cubeValues[v1Idx] > isoLevel) {
+                                mat = chunk.getMaterial(x + o1.x, y + o1.y, z + o1.z);
+                            } else {
+                                mat = chunk.getMaterial(x + o2.x, y + o2.y, z + o2.z);
+                            }
+
+                            // Добавляем материал для КАЖДОЙ вершины
+                            materials.add(mat);
+
                             indices.add(vertexCount++);
                         }
                     }
@@ -81,7 +104,12 @@ public class MeshGenerator {
             indicesArray[i] = indices.get(i);
         }
 
-        return new MeshData(verticesArray, normals, indicesArray);
+        int[] materialsArray = new int[materials.size()];
+        for (int i = 0; i < materials.size(); i++) {
+            materialsArray[i] = materials.get(i);
+        }
+
+        return new MeshData(verticesArray, normals, indicesArray, materialsArray);
     }
 
     public static float[] calculateNormals(List<Float> vertices, List<Integer> indices) {
@@ -120,7 +148,7 @@ public class MeshGenerator {
         }
         return normalsArray;
     }
-    private static Vector3f interpolateEdge(int edgeIdx, int x, int y, int z, float[] v) {
+    private static Vector3f interpolateEdge(int edgeIdx, int x, int y, int z, int[] v) {
         // Получаем индексы углов, которые соединяет это ребро
         int v1Idx = CubeData.EDGE_CONNECTIONS[edgeIdx][0];
         int v2Idx = CubeData.EDGE_CONNECTIONS[edgeIdx][1];
@@ -129,7 +157,7 @@ public class MeshGenerator {
         float val2 = v[v2Idx];
 
         // Интерполяция: (ISO - V1) / (V2 - V1)
-        float t = (128f - val1) / (val2 - val1);
+        float t = (isoLevel - val1) / (val2 - val1);
 
         Vector3f p1 = new Vector3f(x, y, z).add(new Vector3f(CubeData.OFFSETS[v1Idx]));
         Vector3f p2 = new Vector3f(x, y, z).add(new Vector3f(CubeData.OFFSETS[v2Idx]));
@@ -146,6 +174,8 @@ public class MeshGenerator {
         FloatBuffer vertexBuffer = MemoryUtil.memAllocFloat(data.vertices().length);
 
         FloatBuffer normalBuffer = MemoryUtil.memAllocFloat(data.normals().length);
+
+        IntBuffer materialBuffer = MemoryUtil.memAllocInt(data.materials().length);
 
         try {
 
@@ -178,12 +208,22 @@ public class MeshGenerator {
             glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
             glEnableVertexAttribArray(1);
 
+            //vbo для материалов
+            int vboIdMaterial = glGenBuffers();
+
+            materialBuffer.put(data.materials()).flip();
+            glBindBuffer(GL_ARRAY_BUFFER, vboIdMaterial);
+            glBufferData(GL_ARRAY_BUFFER, materialBuffer, GL_STATIC_DRAW);
+            glVertexAttribIPointer (2, 1, GL_INT, 0, 0);
+            glEnableVertexAttribArray(2);
+
             glBindBuffer(GL_ARRAY_BUFFER, 0);
         } finally {
             // Освобождаем память NIO (но не буферы в видеокарте!)
             MemoryUtil.memFree(vertexBuffer);
             MemoryUtil.memFree(normalBuffer);
             MemoryUtil.memFree(idxBuffer);
+            MemoryUtil.memFree(materialBuffer);
         }
 
         glBindVertexArray(0);

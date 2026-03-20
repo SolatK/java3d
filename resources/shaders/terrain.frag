@@ -2,17 +2,32 @@
 
 in vec3 fragNormal;
 in vec3 fragPos;
+flat in int fragMat;
 
 out vec4 out_Color;
 
 void main() {
-    // 1. Нормализуем входящий вектор (интерполяция может его немного исказить)
-    vec3 normal = normalize(fragNormal);
+    // 1. Базовый цвет
+    vec3 baseColor;
 
-    // 2. Преобразуем диапазон нормали из [-1, 1] в [0, 1]
-    // Чтобы отрицательные направления (например, вниз или влево) не были просто черными
-    vec3 debugColor = normal * 0.5 + 0.5;
+    if (fragMat == 1) {
+        baseColor = vec3(0.2, 0.6, 0.1); // Трава (Зеленый)
+    } else if (fragMat == 2) {
+        baseColor = vec3(0.4, 0.4, 0.4); // Камень (Серый)
+    } else {
+        baseColor = vec3(0.8, 0.0, 0.8); // Ошибка (Розовый)
+    }
 
-    // 3. Выводим результат (альфа-канал всегда 1.0 — непрозрачный)
-    out_Color = vec4(debugColor, 1.0);
+    // 2. Направление "солнца" (светит немного сбоку и сверху)
+    vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
+
+    // 3. Расчет диффузного освещения (скалярное произведение)
+    // Чем перпендикулярнее свет к нормали, тем ярче точка
+    float diff = max(dot(normalize(fragNormal), lightDir), 0.0);
+
+    // 4. Эмбиент (фоновый свет), чтобы тени не были абсолютно черными
+    float ambient = 0.2;
+    float finalLight = diff + ambient;
+
+    out_Color = vec4(baseColor * finalLight, 1.0);
 }
