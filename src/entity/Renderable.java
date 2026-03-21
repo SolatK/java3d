@@ -9,6 +9,8 @@ public abstract class Renderable {
     protected Matrix4f modelMatrix = new Matrix4f();
     protected Mesh mesh; //VAO/VBO
 
+    protected boolean isRemoved = false;
+
     public abstract void updateModelMatrix();
 
     public Mesh getMesh() { return mesh; }
@@ -19,5 +21,14 @@ public abstract class Renderable {
 
     public Vector3f getPosition() {
         return position;
+    }
+
+    public void cleanup() {
+        this.isRemoved = true;
+
+        if (mesh != null) {
+            mesh.cleanup();
+            mesh = null;
+        }
     }
 }

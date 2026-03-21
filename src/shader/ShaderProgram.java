@@ -55,7 +55,7 @@ public class ShaderProgram {
         return uniforms.computeIfAbsent(name, k -> glGetUniformLocation(programId, k));
     }
 
-    // Передача матрицы 4x4 (JOML -> OpenGL)
+
     public void setUniform(String name, Matrix4f matrix) {
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer buffer = stack.mallocFloat(16);
@@ -77,11 +77,11 @@ public class ShaderProgram {
 
     //Текстуры
     public void setUniform(String name, int value) {
-        // 1. Находим "адрес" переменной в скомпилированном шейдере
+
         int location = glGetUniformLocation(programId, name);
 
         if (location != -1) {
-            // 2. Передаем ОДНО целое число (1i = 1 integer)
+
             glUniform1i(location, value);
         } else {
             System.err.println("Uniform '" + name + "' не найден в шейдере!");

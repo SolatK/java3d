@@ -20,7 +20,7 @@ import static org.lwjgl.opengl.GL20C.glEnableVertexAttribArray;
 import static org.lwjgl.opengl.GL20C.glVertexAttribPointer;
 import static org.lwjgl.opengl.GL30C.*;
 
-public class MeshGenerator {
+public class TerrainMeshGenerator {
     public static MeshData generateChunkMeshData(Chunk chunk, World world) {
         List<Float> vertices = new ArrayList<>();
         List<Integer> indices = new ArrayList<>();
@@ -31,7 +31,7 @@ public class MeshGenerator {
         for (int z = 0; z < size; z++) {
             for (int y = 0; y < size; y++) {
                 for (int x = 0; x < size; x++) {
-                    // 1. Собираем плотность в 8 углах текущего куба
+
                     int[] cubeValues = new int[8];
 
                     for (int i = 0; i < 8; i++) {
@@ -45,7 +45,6 @@ public class MeshGenerator {
                         }
                     }
 
-                    // 2. Определяем индекс конфигурации (от 0 до 255)
                     int cubeIndex = 0;
                     if (cubeValues[0] > isoLevel) cubeIndex |= 1;
                     if (cubeValues[1] > isoLevel) cubeIndex |= 2;
@@ -175,12 +174,16 @@ public class MeshGenerator {
     public static Mesh uploadMesh(MeshData data) {
         int vaoId = glGenVertexArrays();
 
+        int idxVboId = glGenBuffers();
         IntBuffer idxBuffer = MemoryUtil.memAllocInt(data.indices().length);
 
+        int vboIdVertex = glGenBuffers();
         FloatBuffer vertexBuffer = MemoryUtil.memAllocFloat(data.vertices().length);
 
+        int vboIdNormal = glGenBuffers();
         FloatBuffer normalBuffer = MemoryUtil.memAllocFloat(data.normals().length);
 
+        int vboIdMaterial = glGenBuffers();
         IntBuffer materialBuffer = MemoryUtil.memAllocInt(data.materials().length);
 
         try {
@@ -188,8 +191,6 @@ public class MeshGenerator {
             glBindVertexArray(vaoId);
 
             //Индексы (EBO)
-            int idxVboId = glGenBuffers();
-
             idxBuffer.put(data.indices()).flip();
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, idxVboId);
@@ -197,8 +198,6 @@ public class MeshGenerator {
 
 
             //vbo для вершин
-            int vboIdVertex = glGenBuffers();
-
             vertexBuffer.put(data.vertices()).flip();
             glBindBuffer(GL_ARRAY_BUFFER, vboIdVertex);
             glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_STATIC_DRAW);
@@ -206,8 +205,6 @@ public class MeshGenerator {
             glEnableVertexAttribArray(0);
 
             //vbo Для нормалей
-            int vboIdNormal = glGenBuffers();
-
             normalBuffer.put(data.normals()).flip();
             glBindBuffer(GL_ARRAY_BUFFER, vboIdNormal);
             glBufferData(GL_ARRAY_BUFFER, normalBuffer, GL_STATIC_DRAW);
@@ -215,8 +212,6 @@ public class MeshGenerator {
             glEnableVertexAttribArray(1);
 
             //vbo для материалов
-            int vboIdMaterial = glGenBuffers();
-
             materialBuffer.put(data.materials()).flip();
             glBindBuffer(GL_ARRAY_BUFFER, vboIdMaterial);
             glBufferData(GL_ARRAY_BUFFER, materialBuffer, GL_STATIC_DRAW);
@@ -234,6 +229,6 @@ public class MeshGenerator {
 
         glBindVertexArray(0);
 
-        return new Mesh(vaoId, data.indices().length);
+        return new Mesh(vaoId, data.indices().length, idxVboId, vboIdVertex, vboIdNormal, vboIdMaterial);
     }
 }

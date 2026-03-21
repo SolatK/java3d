@@ -5,20 +5,19 @@ import entity.Chunk;
 import graphics.Mesh;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import org.joml.Vector3i;
 import org.lwjgl.opengl.GL;
 import utils.ChunkStatus;
-import utils.MeshGenerator;
+import utils.TerrainMeshGenerator;
 import utils.RaycastResult;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 import static core.Config.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.system.MemoryUtil.NULL;
+import static core.Config.chunkPerFrame;
 
 public class Controller {
 
@@ -136,11 +135,13 @@ public class Controller {
     }
 
     private void updateGame() {
-        while (!world.getReadyToUpload().isEmpty()) {
+        //лимит загрузки чанков за кадр
+        int limit = chunkPerFrame;
+        while (limit-- > 0 &&!world.getReadyToUpload().isEmpty()) {
             Chunk chunk = world.getReadyToUpload().poll();
 
             // ВАЖНО: Выполняем OpenGL команды здесь
-            Mesh mesh = MeshGenerator.uploadMesh(chunk.getMeshData());
+            Mesh mesh = TerrainMeshGenerator.uploadMesh(chunk.getMeshData());
             chunk.setMesh(mesh);
             chunk.setStatus(ChunkStatus.READY);
 
@@ -158,8 +159,7 @@ public class Controller {
         for (int x = -renderDistance; x <= renderDistance; x++) {
             for (int z = -renderDistance; z <= renderDistance; z++) {
                 for (int cy = -depth; cy <= depth; cy++) {
-                    // Для бесконечного плоского мира перебираем X и Z.
-                    // Если нужны пещеры вверх-вниз, добавь цикл по Y.
+
                     int cx = pCX + x;
                     int cz = pCZ + z;
 
@@ -170,6 +170,7 @@ public class Controller {
         }
 
         world.updateDirtyChunks();
+        world.cleanupChunks(pCX, pCZ);
 
         // 4. (Опционально) Удаление слишком далеких чанков
         // removeFarChunks(pCX, pCZ);

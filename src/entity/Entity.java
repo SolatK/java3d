@@ -6,6 +6,10 @@ public class Entity extends Renderable{
     private Vector3f rotation = new Vector3f(0, 0, 0);
     private float scale = 1f;
 
+    public Entity(Vector3f pos) {
+        position = pos;
+    }
+
     @Override
     public void updateModelMatrix() {
         modelMatrix.identity()

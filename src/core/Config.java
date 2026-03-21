@@ -25,7 +25,6 @@ public class Config {
             properties.load(fis);
 
             // Читаем значения и конвертируем типы
-            // Второй аргумент в getProperty — это значение по умолчанию
             width = Integer.parseInt(properties.getProperty("window.width", "800"));
             height = Integer.parseInt(properties.getProperty("window.height", "600"));
             title = properties.getProperty("window.title", "My Game");
