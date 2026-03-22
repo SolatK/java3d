@@ -17,8 +17,8 @@ public class Config {
     public static int renderDistance = 5;
     public static float isoLevel = 128;
     public static int depth = 3;
-
     public static int chunkPerFrame = 1;
+    public static float targetFps = 30;
 
     public static void load() {
         try (FileInputStream fis = new FileInputStream(FILE_PATH)) {
@@ -34,6 +34,7 @@ public class Config {
             isoLevel = Float.parseFloat(properties.getProperty("world.isoLevel", "128"));
             depth = Integer.parseInt(properties.getProperty("world.depth", "3"));
             chunkPerFrame = Integer.parseInt(properties.getProperty("world.chunkPerFrame", "1"));
+            targetFps = Float.parseFloat(properties.getProperty("window.targetFPS", "60"));
 
             System.out.println("Конфигурация успешно загружена.");
         } catch (IOException e) {

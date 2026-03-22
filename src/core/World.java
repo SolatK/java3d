@@ -29,6 +29,7 @@ public class World {
 
         if (chunk.getStatus() == ChunkStatus.EMPTY) {
             chunk.setStatus(ChunkStatus.GENERATING_BLOCKS);
+            //отдаем генерацию в другие потоки
             submitChunk(chunk);
         }
     }
@@ -179,6 +180,7 @@ public class World {
         while (iterator.hasNext()) {
             Chunk chunk = iterator.next();
             chunk.setStatus(ChunkStatus.REGENERATING_MESH);
+            //вызов из главного потока
             generateChunk(chunk);
             iterator.remove();
         }

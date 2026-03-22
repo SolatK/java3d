@@ -12,19 +12,18 @@ public class ChunkGenerator {
         float terrainFreq = 0.005f; // Чем меньше, тем крупнее горы
         float materialFreq = 0.04f;
         float surfaceLevel = (float) World.CHUNK_SIZE / 2; // Примерный уровень "земли"
-        Vector3f position = chunk.getPosition();
         int stride = Chunk.stride;
 
         for (int z = 0; z < stride; z++) {
             for (int y = 0; y < stride; y++) {
                 for (int x = 0; x < stride; x++) {
                     // Мировые координаты
-                    float realWorldY = position.y + y;
+                    float realWorldY = chunk.getPosition().y + y;
 
                     //Координаты ДЛЯ шума (с частотой)
-                    float wx = (position.x + x) * terrainFreq;
-                    float wy = (position.y + y) * terrainFreq;
-                    float wz = (position.z + z) * terrainFreq;
+                    float wx = (chunk.getPosition().x + x) * terrainFreq;
+                    float wy = (chunk.getPosition().y + y) * terrainFreq;
+                    float wz = (chunk.getPosition().z + z) * terrainFreq;
 
                     // 3D Шум Simplex (-1.0 до 1.0)
                     float noise = SimplexNoise.noise(wx, wy, wz);

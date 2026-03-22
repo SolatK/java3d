@@ -6,7 +6,6 @@ import graphics.Mesh;
 import graphics.MeshData;
 import org.joml.Vector3f;
 import org.joml.Vector3i;
-import org.lwjgl.system.MemoryUtil;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -175,44 +174,40 @@ public class TerrainMeshGenerator {
         int vaoId = glGenVertexArrays();
 
         int idxVboId = glGenBuffers();
-        IntBuffer idxBuffer = MemoryUtil.memAllocInt(data.indices().length);
+        IntBuffer idxBuffer = data.getIdxBuffer();
 
         int vboIdVertex = glGenBuffers();
-        FloatBuffer vertexBuffer = MemoryUtil.memAllocFloat(data.vertices().length);
+        FloatBuffer vertexBuffer = data.getVertexBuffer();
 
         int vboIdNormal = glGenBuffers();
-        FloatBuffer normalBuffer = MemoryUtil.memAllocFloat(data.normals().length);
+        FloatBuffer normalBuffer = data.getNormalBuffer();
 
         int vboIdMaterial = glGenBuffers();
-        IntBuffer materialBuffer = MemoryUtil.memAllocInt(data.materials().length);
+        IntBuffer materialBuffer = data.getMaterialBuffer();
 
         try {
 
             glBindVertexArray(vaoId);
 
             //Индексы (EBO)
-            idxBuffer.put(data.indices()).flip();
 
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, idxVboId);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, idxBuffer, GL_STATIC_DRAW);
 
 
             //vbo для вершин
-            vertexBuffer.put(data.vertices()).flip();
             glBindBuffer(GL_ARRAY_BUFFER, vboIdVertex);
             glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_STATIC_DRAW);
             glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
             glEnableVertexAttribArray(0);
 
             //vbo Для нормалей
-            normalBuffer.put(data.normals()).flip();
             glBindBuffer(GL_ARRAY_BUFFER, vboIdNormal);
             glBufferData(GL_ARRAY_BUFFER, normalBuffer, GL_STATIC_DRAW);
             glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
             glEnableVertexAttribArray(1);
 
             //vbo для материалов
-            materialBuffer.put(data.materials()).flip();
             glBindBuffer(GL_ARRAY_BUFFER, vboIdMaterial);
             glBufferData(GL_ARRAY_BUFFER, materialBuffer, GL_STATIC_DRAW);
             glVertexAttribIPointer (2, 1, GL_INT, 0, 0);
@@ -221,14 +216,11 @@ public class TerrainMeshGenerator {
             glBindBuffer(GL_ARRAY_BUFFER, 0);
         } finally {
             // Освобождаем память NIO (но не буферы в видеокарте!)
-            MemoryUtil.memFree(vertexBuffer);
-            MemoryUtil.memFree(normalBuffer);
-            MemoryUtil.memFree(idxBuffer);
-            MemoryUtil.memFree(materialBuffer);
+            data.free();
         }
 
         glBindVertexArray(0);
 
-        return new Mesh(vaoId, data.indices().length, idxVboId, vboIdVertex, vboIdNormal, vboIdMaterial);
+        return new Mesh(vaoId, data.getIndexCount(), idxVboId, vboIdVertex, vboIdNormal, vboIdMaterial);
     }
 }

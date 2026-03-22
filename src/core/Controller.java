@@ -18,11 +18,11 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11C.*;
 import static org.lwjgl.system.MemoryUtil.NULL;
 import static core.Config.chunkPerFrame;
+import static core.Config.targetFps;
 
 public class Controller {
 
     private long window;
-
 
     //Камера
     private Camera camera = new Camera(new Vector3f(0, 0, 0));
@@ -35,8 +35,23 @@ public class Controller {
     private boolean firstMouse = true;
     private double lastX = 0, lastY = 0;
 
+
+    //стабилизация фпс
+    private long nsPerFrame; // Время одного кадра в наносекундах
+    private long lastTime = System.nanoTime();
+    private float nsDeltaTime; //дельта в наносекундах
+
+    //вывод фпс
+    private double lastFpsTime = 0; // Время последнего обновления счетчика
+    private int fpsCount = 0;       // Счетчик кадров
+
+    //скорость камеры
+    float speed = 10f;
+
     private void init() {
         Config.load();
+
+        nsPerFrame = (1000000000 / (long) targetFps); // Время одного кадра в секундах
 
         //инициализируем матрицу проекции
         //Её нужно будет перегенерить если поменяется размер окна
@@ -55,6 +70,8 @@ public class Controller {
 
 
         glfwMakeContextCurrent(window);
+
+        glfwSwapInterval(0);
 
         //мышь
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -122,20 +139,50 @@ public class Controller {
 
     private void loop() {
         while (!glfwWindowShouldClose(window)) {
-            //клавомыш и может потом прочее
-            handleInput();
 
-            updateGame();
-            render.render(camera, gameObjects, world);
+            long now = System.nanoTime();
+            long passedNs = now - lastTime; //в секундах
 
-            glfwSwapBuffers(window);
-            glfwPollEvents();
+            if (passedNs >= nsPerFrame) {
+                nsDeltaTime = (passedNs / 1000000000f);
+                lastTime = now;
+
+                //клавомыш и может потом прочее
+                handleInput();
+
+                updateGame();
+                render.render(camera, gameObjects, world);
+
+
+                glfwSwapBuffers(window);
+                glfwPollEvents();
+
+                double currentTime = glfwGetTime(); // Время в секундах с начала игры
+                fpsCount++;
+
+                if (currentTime - lastFpsTime >= 1.0) {
+                    int displayFps = fpsCount;
+                    fpsCount = 0;
+                    lastFpsTime = currentTime;
+
+                    // Выводим в заголовок окна
+                    glfwSetWindowTitle(window, title + " | FPS: " + displayFps);
+                }
+
+            } else {
+                try {
+                    // Спим чуть меньше, чем нужно, чтобы не пропустить тайминг из-за неточности Thread.sleep
+                    Thread.sleep(1);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
 
         }
     }
 
     private void updateGame() {
-        //лимит загрузки чанков за кадр
+        //лимит генерации чанков за кадр
         int limit = chunkPerFrame;
         while (limit-- > 0 &&!world.getReadyToUpload().isEmpty()) {
             Chunk chunk = world.getReadyToUpload().poll();
@@ -150,11 +197,10 @@ public class Controller {
         }
 
         Vector3f playerPos = camera.getPos();
-        // 1. Определяем, в каком чанке стоит игрок прямо сейчас
         int pCX = (int) Math.floor(playerPos.x / World.CHUNK_SIZE);
         int pCZ = (int) Math.floor(playerPos.z / World.CHUNK_SIZE);
 
-        // 2. Проходим циклом по области вокруг игрока
+
         //todo сделать центральные чанки приоритетнее
         for (int x = -renderDistance; x <= renderDistance; x++) {
             for (int z = -renderDistance; z <= renderDistance; z++) {
@@ -163,7 +209,7 @@ public class Controller {
                     int cx = pCX + x;
                     int cz = pCZ + z;
 
-                    // 3. Используем computeIfAbsent для создания чанка, если его нет
+                    //запрос на генерацию в многопотоке
                     world.requestChunk(cx, cy, cz);
                 }
             }
@@ -172,36 +218,36 @@ public class Controller {
         world.updateDirtyChunks();
         world.cleanupChunks(pCX, pCZ);
 
-        // 4. (Опционально) Удаление слишком далеких чанков
-        // removeFarChunks(pCX, pCZ);
     }
 
 
     private boolean pressed = false;
 
     private void handleInput() {
-        float speed = 2f;
+        double safeDelta = (float) Math.min(nsDeltaTime, 0.1);
+        float distance = (float) (speed * safeDelta);
+
         Vector3f forward = camera.getFront();
         Vector3f up = camera.getUp();
         Vector3f pos = camera.getPos();
 
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
-            pos.add(new Vector3f(forward).mul(speed));
+            pos.add(new Vector3f(forward).mul(distance));
         }
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
-            pos.add(new Vector3f(forward).mul(-speed));
+            pos.add(new Vector3f(forward).mul(-distance));
         }
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
-            pos.add(new Vector3f(forward).cross(up).normalize().mul(speed));
+            pos.add(new Vector3f(forward).cross(up).normalize().mul(distance));
         }
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
-            pos.add(new Vector3f(forward).cross(up).normalize().mul(-speed));
+            pos.add(new Vector3f(forward).cross(up).normalize().mul(-distance));
         }
         if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
-            pos.add(new Vector3f(up).mul(speed));
+            pos.add(new Vector3f(up).mul(distance));
         }
         if (glfwGetKey(window, GLFW_KEY_C) == GLFW_PRESS) {
-            pos.add(new Vector3f(up).mul(-speed));
+            pos.add(new Vector3f(up).mul(-distance));
         }
 
         //возвращаем курсор и снова скрываем
@@ -211,17 +257,17 @@ public class Controller {
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS && !pressed) {
             RaycastResult hit = world.raycast(camera.getPos(), camera.getFront(), 50.0f);
             if (hit != null) {
-                // Уменьшаем плотность (копаем)
-                world.modifyTerrain(hit.worldPos(), 5f, -10);
+                // увеличиваем плотность (ставим)
+                world.modifyTerrain(hit.worldPos(), 25f, 1);
             }
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            pressed = true;
+            //pressed = true;
         }
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
             RaycastResult hit = world.raycast(camera.getPos(), camera.getFront(), 50.0f);
             if (hit != null) {
                 // Уменьшаем плотность (копаем)
-                world.modifyTerrain(hit.worldPos(), 5f, -1);
+                world.modifyTerrain(hit.worldPos(), 25f, -1);
             }
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
